@@ -522,18 +522,22 @@ constexpr auto simplify_impl(Add<LHS, RHS> const &) {
 }
 // x + ax -> (1+a)x
 template <IsExpression LHS, IsScaled RHS>
-constexpr auto simplify_impl(Add<LHS, RHS>) {
+constexpr auto simplify_impl(Add<LHS, RHS> const &) {
     if constexpr (std::is_same_v<typename RHS::Expr, LHS>) {
         return Scaled<RHS::coeff + 1, LHS>{LHS{}};
     }
 }
 // ax + bx -> (a+b)x
 template <IsScaled LHS, IsScaled RHS>
-constexpr auto simplify_impl(Add<LHS, RHS>) {
+constexpr auto simplify_impl(Add<LHS, RHS> const &) {
     if constexpr (std::is_same_v<typename LHS::Expr, typename RHS::Expr>) {
         using Expr = RHS::Expr;
         return Scaled<LHS::coeff + RHS::coeff, Expr>{Expr{}};
     }
+}
+// fallback for Scaled<Coeff, Epxr>{Expr{}}
+template <IsScaled S> constexpr auto simplify_impl(S const &) {
+    return Scaled<S::coeff, typename S::Expr>{typename S::Expr{}};
 }
 
 /// \brief Simplify symbolic addition
