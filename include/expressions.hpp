@@ -493,6 +493,49 @@ template <char Symbol> constexpr auto simplify_impl(Variable<Symbol> const &v) {
 
 template <auto V> constexpr auto simplify_impl(Scalar<V> const &s) { return s; }
 
+// x + 0 -> x
+template <IsExpression LHS>
+constexpr auto simplify_impl(Add<LHS, Scalar<0>> const &) {
+    return LHS{};
+}
+// 0 + x -> x
+template <IsExpression RHS>
+constexpr auto simplify_impl(Add<Scalar<0>, RHS> const &) {
+    return RHS{};
+}
+// x + x -> 2x
+template <IsExpression Expr>
+constexpr auto simplify_impl(Add<Expr, Expr> const &) {
+    return Scaled<2, Expr>{Expr{}};
+}
+// Scalar<u> + Scalar<v> -> Scalar<u+v>
+template <IsScalar LHS, IsScalar RHS>
+constexpr auto simplify_impl(Add<LHS, RHS> const &) {
+    return Scalar<LHS::value + RHS::value>{};
+}
+// ax + x -> (a+1)x
+template <IsScaled LHS, IsExpression RHS>
+constexpr auto simplify_impl(Add<LHS, RHS> const &) {
+    if constexpr (std::is_same_v<typename LHS::Expr, RHS>) {
+        return Scaled<LHS::coeff + 1, RHS>{RHS{}};
+    }
+}
+// x + ax -> (1+a)x
+template <IsExpression LHS, IsScaled RHS>
+constexpr auto simplify_impl(Add<LHS, RHS>) {
+    if constexpr (std::is_same_v<typename RHS::Expr, LHS>) {
+        return Scaled<RHS::coeff + 1, LHS>{LHS{}};
+    }
+}
+// ax + bx -> (a+b)x
+template <IsScaled LHS, IsScaled RHS>
+constexpr auto simplify_impl(Add<LHS, RHS>) {
+    if constexpr (std::is_same_v<typename LHS::Expr, typename RHS::Expr>) {
+        using Expr = RHS::Expr;
+        return Scaled<LHS::coeff + RHS::coeff, Expr>{Expr{}};
+    }
+}
+
 /// \brief Simplify symbolic addition
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto simplify_impl(Add<LHS, RHS> const &expr) {
@@ -500,110 +543,18 @@ constexpr auto simplify_impl(Add<LHS, RHS> const &expr) {
     auto simplified_rhs = simplify_impl(expr.m_rhs);
     using SimplifiedLHS = decltype(simplified_lhs);
     using SimplifiedRHS = decltype(simplified_rhs);
-    using SimplifiedExpr = Add<SimplifiedLHS, SimplifiedRHS>;
 
-    // 0 + x -> x
-    if constexpr (IsScalarZero<SimplifiedLHS>) {
-        return simplified_rhs;
-    }
-    // x + 0 -> x
-    else if constexpr (IsScalarZero<SimplifiedRHS>) {
-        return simplified_lhs;
-    }
-    // Scalar<u> + Scalar<v> -> Scalar<u+v>
-    else if constexpr (IsScalar<SimplifiedLHS> && IsScalar<SimplifiedRHS>) {
-        return Scalar<SimplifiedLHS::value + SimplifiedRHS::value>{};
-    }
-    // x + (-x) → 0 or (-x) + x → 0
-    else if constexpr (IsNegation<SimplifiedLHS>) {
-        if constexpr (std::is_same_v<decltype(SimplifiedLHS::m_expr),
-                                     SimplifiedRHS>) {
-            return Scalar<0>{};
-        }
-    } else if constexpr (IsNegation<SimplifiedRHS>) {
-        if constexpr (std::is_same_v<decltype(SimplifiedRHS::m_expr),
-                                     SimplifiedLHS>) {
-            return Scalar<0>{};
-        }
-    }
-
-    // (x + x) -> 2 * x
-    else if constexpr (std::is_same_v<SimplifiedLHS, SimplifiedRHS>) {
-        return (Scalar<2>{} * simplified_lhs);
-    }
-
-    else
-        return Add<SimplifiedLHS, SimplifiedRHS>(simplified_lhs,
-                                                 simplified_rhs);
-}
-
-/// \brief Simplify symbolic subtraction (to be implemented)
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto simplify_impl(Subtraction<LHS, RHS> const &expr) {
-    auto simplified_lhs = simplify_impl(expr.m_lhs);
-    auto simplified_rhs = simplify_impl(expr.m_rhs);
-
-    using SimplifiedLHS = decltype(simplified_lhs);
-    using SimplifiedRHS = decltype(simplified_rhs);
-    using SimplifiedExpr = Subtraction<SimplifiedLHS, SimplifiedRHS>;
-
-    // 0 - x -> -x
-    if constexpr (IsScalarZero<SimplifiedLHS>) {
-        return -simplified_rhs;
-    }
-    // x - 0 -> x
-    else if constexpr (IsScalarZero<SimplifiedRHS>) {
-        return simplified_lhs;
-    }
-    // x - x -> 0
-    else if constexpr (std::is_same_v<SimplifiedLHS, SimplifiedRHS>) {
-        return (Scalar<0>{});
-    }
-    // Scalar<u> - Scalar<v> -> Scalar<u-v>
-    else if constexpr (IsScalar<SimplifiedLHS> && IsScalar<SimplifiedRHS>) {
-        return Scalar<SimplifiedLHS::value - SimplifiedRHS::value>{};
-    }
-
-    else
-        return Subtraction<SimplifiedLHS, SimplifiedRHS>(simplified_lhs,
-                                                         simplified_rhs);
-}
-
-/// \brief Simplify symbolic multiplication (to be implemented)
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto simplify_impl(Multiplication<LHS, RHS> const &expr) {
-    auto simplified_lhs = simplify_impl(expr.m_lhs);
-    auto simplified_rhs = simplify_impl(expr.m_rhs);
-
-    using SimplifiedLHS = decltype(simplified_lhs);
-    using SimplifiedRHS = decltype(simplified_rhs);
-
-    // x * 0 || 0 * x -> 0
-    if constexpr (IsScalarZero<SimplifiedLHS> || IsScalarZero<SimplifiedRHS>) {
-        return Scalar<0>{};
-    }
-    // 1 * x -> x
-    else if constexpr (IsScalarOne<SimplifiedLHS>) {
-        return simplified_rhs;
-    }
-    // x * 1 -> x
-    else if constexpr (IsScalarOne<SimplifiedRHS>) {
-        return simplified_lhs;
-    }
-
-    // Scalar<u> * Scalar<v> -> Scalar<u*v>
-    else if constexpr (IsScalar<SimplifiedLHS> && IsScalar<SimplifiedRHS>) {
-        return Scalar<SimplifiedLHS::value * SimplifiedRHS::value>{};
-    }
-
-    else
-        return Multiplication<SimplifiedLHS, SimplifiedRHS>(simplified_lhs,
-                                                            simplified_rhs);
+    return Add<SimplifiedLHS, SimplifiedRHS>{simplified_lhs, simplified_rhs};
 }
 
 /// \brief Top-level simplify function
 template <IsExpression Expr> constexpr auto simplify(Expr const &expr) {
-    return simplify_impl(expr);
+    auto simplified_expr = simplify_impl(expr);
+    using SimplifiedExpr = decltype(simplified_expr);
+    if constexpr (std::is_same_v<SimplifiedExpr, Expr>)
+        return simplified_expr;
+    else
+        return simplify_impl(simplified_expr);
 }
 
 } // namespace math_expr

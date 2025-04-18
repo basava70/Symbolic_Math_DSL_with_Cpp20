@@ -12,14 +12,8 @@ int main() {
     auto context = Input<InputPair<'x', 3>>{};
 
     auto expr = (variable + variable) + variable;
-    auto expr2 = (scalar3 * variable) + variable;
     std::cout << "expr : " << expr.expr()
-              << " simplify : " << simplify(expr).expr() << "\n";
-    auto test_expr = Variable<'x'>{} * Scalar<1>{};
-    std::cout << " test_expr : " << test_expr.expr()
-              << ", eval expected is 3 : " << test_expr.eval(context) << "\n";
-    std::cout << "expr2 : " << expr2.expr() << "\n";
-    // << " simplify : " << simplify(expr2).expr() << "\n";
+              << " simplified expr : " << simplify(expr).expr() << "\n";
 
     std::cout << "Success!!\n";
     return 0;

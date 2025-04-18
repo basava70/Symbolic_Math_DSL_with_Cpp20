@@ -60,20 +60,20 @@ inline bool is_composite(std::string const &expr) {
     return expr.find_first_of("+*/-") != std::string::npos;
 }
 
-#include <cxxabi.h>
-#include <typeinfo>
-
-template <typename T> std::string demangled_type_name() {
-    int status;
-    char *name = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
-    std::string result = (status == 0) ? name : typeid(T).name();
-    std::free(name);
-    return result;
-}
-
-template <IsExpression Expr> void print_type_name(Expr const &expr) {
-    std::cout << "expr : " << demangled_type_name<Expr>() << "\n";
-}
+// #include <cxxabi.h>
+// #include <typeinfo>
+//
+// template <typename T> std::string demangled_type_name() {
+//     int status;
+//     char *name = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
+//     std::string result = (status == 0) ? name : typeid(T).name();
+//     std::free(name);
+//     return result;
+// }
+//
+// template <IsExpression Expr> void print_type_name(Expr const &expr) {
+//     std::cout << "expr : " << demangled_type_name<Expr>() << "\n";
+// }
 
 } // namespace math_expr::utility
 #endif
