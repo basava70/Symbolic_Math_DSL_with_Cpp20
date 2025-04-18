@@ -194,6 +194,37 @@ template <char symbol> struct Variable : ExpressionBase<Variable<symbol>> {
         using is_variable = void;
 };
 
+template <auto Coeff, IsExpression E>
+struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
+        using Expr = E;
+        static constexpr auto coeff = Coeff;
+
+        Scaled(E const &expr)
+            : m_expr(expr) {}
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &context) const noexcept {
+            if constexpr (coeff == 0)
+                return 0;
+            else
+                return coeff * m_expr.eval(context);
+        }
+
+        [[nodiscard]] constexpr std::string expr() const {
+            if constexpr (coeff == 1)
+                return m_expr.expr();
+            else if constexpr (coeff == 0)
+                return "0";
+            else {
+                return "(" + utility::format_floating_point(coeff) + " * " +
+                       m_expr.expr() + ")";
+            }
+        }
+
+        E m_expr;
+        using is_expression = void;
+        using is_scaled = void;
+};
+
 // [TODO]
 // Look into std::move and std::forward aspects to
 // avoid copies in both lvalue and rvalue expressions.
@@ -294,7 +325,8 @@ template <IsExpression Expr> Negation(Expr) -> Negation<Expr>;
  * \note Requires the expression to satisfy \c IsExpression.
  */
 template <IsExpression Expr> constexpr auto operator-(Expr const &expr) {
-    return Negation<Expr>(expr);
+    return Scaled<-1, Expr>{expr};
+    // return Negation<Expr>(expr);
 }
 
 /**
@@ -401,83 +433,18 @@ Multiplication(LHS, RHS) -> Multiplication<LHS, RHS>;
  */
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
-    return Multiplication(lhs, rhs);
+    return Multiplication<LHS, RHS>(lhs, rhs);
+}
+template <IsScalar LHS, IsExpression RHS>
+constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
+    return Scaled<LHS::value, RHS>{rhs};
+}
+template <IsExpression LHS, IsScalar RHS>
+constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
+    return Scaled<RHS::value, LHS>{lhs};
 }
 
 // === Simplification Concepts and Rules ===
-
-template <IsScalarMultiple Expr>
-constexpr auto get_value_and_expr(Expr const &expr) {
-    using LHS = decltype(expr.m_lhs);
-    using RHS = decltype(expr.m_rhs);
-
-    if constexpr (IsScalar<LHS>) {
-        return std::pair{LHS::value, expr.m_rhs};
-    } else if constexpr (IsScalar<RHS>) {
-        return std::pair{RHS::value, expr.m_lhs};
-    }
-}
-
-// Scalar Multiple parts to extract Scalar and Expression
-template <IsScalarMultiple T> struct ScalarMultipleParts;
-
-template <auto v, IsExpression E>
-struct ScalarMultipleParts<Multiplication<Scalar<v>, E>> {
-        static constexpr auto value = v;
-        using Expr = E;
-};
-
-template <IsExpression E, auto v>
-struct ScalarMultipleParts<Multiplication<E, Scalar<v>>> {
-        static constexpr auto value = v;
-        using Expr = E;
-};
-
-template <IsExpression T> struct ScalarPlusOne {
-        static constexpr bool is_same_expr = false;
-        using Expr = void;
-        static constexpr auto value = 0;
-};
-
-template <IsScalarMultiple S, IsExpression E> struct ScalarPlusOne<Add<S, E>> {
-        using LHS = ScalarMultipleParts<S>;
-        using Expr = E;
-        static constexpr bool is_same_expr =
-            std::is_same_v<Expr, typename LHS::Expr>;
-        static constexpr auto value = LHS::value + 1;
-};
-
-template <IsExpression E, IsScalarMultiple S> struct ScalarPlusOne<Add<E, S>> {
-        using RHS = ScalarMultipleParts<S>;
-        using Expr = E;
-        static constexpr bool is_same_expr =
-            std::is_same_v<Expr, typename RHS::Expr>;
-        static constexpr auto value = RHS::value + 1;
-};
-
-template <IsExpression E> struct ScalarMinusOne {
-        static constexpr bool is_same_expr = false;
-        using Expr = void;
-        static constexpr auto value = 0;
-};
-
-template <IsScalarMultiple S, IsExpression E>
-struct ScalarMinusOne<Subtraction<S, E>> {
-        using LHS = ScalarMultipleParts<S>;
-        using Expr = E;
-        static constexpr bool is_same_expr =
-            std::is_same_v<typename LHS::Expr, Expr>;
-        static constexpr auto value = LHS::value - 1;
-};
-
-template <IsExpression E, IsScalarMultiple S>
-struct ScalarMinusOne<Subtraction<E, S>> {
-        using RHS = ScalarMultipleParts<S>;
-        using Expr = E;
-        static constexpr bool is_same_expr =
-            std::is_same_v<typename RHS::Expr, Expr>;
-        static constexpr auto value = RHS::value - 1;
-};
 
 //[TODO]
 // Mix both (ax + bx) -> (a+b)x and (ax + x) -> (a+1)x
@@ -526,34 +493,6 @@ template <char Symbol> constexpr auto simplify_impl(Variable<Symbol> const &v) {
 
 template <auto V> constexpr auto simplify_impl(Scalar<V> const &s) { return s; }
 
-/// \brief Simplify unary negation expressions (to be implemented)
-template <IsExpression Expr>
-constexpr auto simplify_impl(Negation<Expr> const &expr) {
-    // Simplify the inner expression
-    auto inner_expr_simplified = simplify_impl(expr.m_expr);
-    using InnerExprSimplified = decltype(inner_expr_simplified);
-
-    // -(-x) → x
-    if constexpr (IsNegation<InnerExprSimplified>) {
-        return inner_expr_simplified.m_expr; // unwrap inner negation
-    }
-
-    // -0 → 0
-    else if constexpr (IsScalarZero<InnerExprSimplified>) {
-        return Scalar<0>{};
-    }
-
-    // -Scalar<v> → Scalar<-v>
-    else if constexpr (IsScalar<InnerExprSimplified>) {
-        return Scalar<-InnerExprSimplified::value>{};
-    }
-
-    // Default case: Negate the simplified inner expression
-    else {
-        return Negation<InnerExprSimplified>(inner_expr_simplified);
-    }
-}
-
 /// \brief Simplify symbolic addition
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto simplify_impl(Add<LHS, RHS> const &expr) {
@@ -593,30 +532,6 @@ constexpr auto simplify_impl(Add<LHS, RHS> const &expr) {
         return (Scalar<2>{} * simplified_lhs);
     }
 
-    // (a * x + b * x) -> (a + b) * x
-    else if constexpr (IsScalarMultiple<LHS> && IsScalarMultiple<RHS>) {
-        using LHSParts = ScalarMultipleParts<LHS>;
-        using RHSParts = ScalarMultipleParts<RHS>;
-
-        if constexpr (std::is_same_v<typename LHSParts::Expr,
-                                     typename RHSParts::Expr>) {
-            using ResultScalar = Scalar<LHSParts::value + RHSParts::value>;
-            using ResultExpr = typename LHSParts::Expr;
-
-            return Multiplication<ResultScalar, ResultExpr>{ResultScalar{},
-                                                            ResultExpr{}};
-        }
-    }
-    //(a * x + x) -> (a + 1) * x
-    else if constexpr (ScalarPlusOne<SimplifiedExpr>::is_same_expr) {
-        using Expr = ScalarPlusOne<SimplifiedExpr>::Expr;
-        constexpr auto value = ScalarPlusOne<SimplifiedExpr>::value;
-        if constexpr (value != 1)
-            return Multiplication<Scalar<value>, Expr>{Scalar<value>{}, Expr{}};
-        else
-            return Expr{};
-    }
-
     else
         return Add<SimplifiedLHS, SimplifiedRHS>(simplified_lhs,
                                                  simplified_rhs);
@@ -647,30 +562,6 @@ constexpr auto simplify_impl(Subtraction<LHS, RHS> const &expr) {
     // Scalar<u> - Scalar<v> -> Scalar<u-v>
     else if constexpr (IsScalar<SimplifiedLHS> && IsScalar<SimplifiedRHS>) {
         return Scalar<SimplifiedLHS::value - SimplifiedRHS::value>{};
-    }
-
-    // (a * x - b * x) -> (a - b) * x
-    else if constexpr (IsScalarMultiple<LHS> && IsScalarMultiple<RHS>) {
-        using LHSParts = ScalarMultipleParts<LHS>;
-        using RHSParts = ScalarMultipleParts<RHS>;
-
-        if constexpr (std::is_same_v<typename LHSParts::Expr,
-                                     typename RHSParts::Expr>) {
-            using ResultScalar = Scalar<LHSParts::value - RHSParts::value>;
-            using ResultExpr = typename LHSParts::Expr;
-
-            return Multiplication<ResultScalar, ResultExpr>{ResultScalar{},
-                                                            ResultExpr{}};
-        }
-    }
-    //(a * x - x) -> (a - 1) * x
-    else if constexpr (ScalarMinusOne<SimplifiedExpr>::is_same_expr) {
-        using Expr = ScalarMinusOne<SimplifiedExpr>::Expr;
-        constexpr auto value = ScalarMinusOne<SimplifiedExpr>::value;
-        if constexpr (value != 1)
-            return Multiplication<Scalar<value>, Expr>{Scalar<value>{}, Expr{}};
-        else
-            return Expr{};
     }
 
     else
