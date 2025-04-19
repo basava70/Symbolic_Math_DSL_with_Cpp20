@@ -11,13 +11,7 @@ int main() {
     auto scalar4 = Scalar<4>{};
     auto context = Input<InputPair<'x', 3>>{};
 
-    auto expr = (variable + variable) + variable;
-    std::cout << "expr : " << expr.expr()
-              << " simplified expr : " << simplify(expr).expr() << "\n";
-    auto expr2 = scalar3 * variable + scalar4 * variable;
-    std::cout << "expr2 : " << expr2.expr()
-              << " simplified : " << simplify(expr2).expr() << "\n";
-
+    std::cout << "Scalar";
     std::cout << "Success!!\n";
     return 0;
 }

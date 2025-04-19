@@ -2,6 +2,7 @@
 #define MATH_EXPRESSION
 
 #include "utility.hpp"
+#include <numeric>
 
 namespace math_expr {
 
@@ -228,340 +229,47 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
 // [TODO]
 // Look into std::move and std::forward aspects to
 // avoid copies in both lvalue and rvalue expressions.
-/**
- * \class Add
- * \brief Symbolic addition of two expressions.
- *
- * \tparam LHS Left-hand side expression (must satisfy \c IsExpression).
- * \tparam RHS Right-hand side expression (must satisfy \c IsExpression).
- *
- * Provides recursive \c eval() and symbolic \c expr() printing.
- *
- * \see operator+
- */
-template <IsExpression LHS, IsExpression RHS>
-struct Add : ExpressionBase<Add<LHS, RHS>> {
-        constexpr Add(LHS const &lhs, RHS const &rhs)
-            : m_lhs(lhs),
-              m_rhs(rhs) {} ///< constructor.
+//
+// Add variadic templates.
+template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
+        std::tuple<Exprs...> m_exprs;
 
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return m_lhs.eval(context) + m_rhs.eval(context);
+        constexpr explicit Add(Exprs const &...exprs)
+            : m_exprs(exprs...) {}
+
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &context) const noexcept {
+            return std::apply(
+                [&](auto const &...exprs) {
+                    return (exprs.eval(context) + ...);
+                },
+                m_exprs);
         }
 
         [[nodiscard]] std::string expr() const {
-            return "(" + m_lhs.expr() + " + " + m_rhs.expr() + ")";
+            if constexpr (sizeof...(Exprs) == 0) {
+                return "()";
+            } else {
+                std::array<std::string, sizeof...(Exprs)> expressions{
+                    std::apply(
+                        [](auto const &...terms) {
+                            return std::array<std::string, sizeof...(terms)>{
+                                terms.expr()...};
+                        },
+                        m_exprs)};
+                return "(" +
+                       std::accumulate(std::next(expressions.begin()),
+                                       expressions.end(), expressions[0],
+                                       [](std::string a, std::string const &b) {
+                                           return std::move(a) + " + " + b;
+                                       }) +
+                       ")";
+            }
         }
 
         using is_expression = void;
         using is_add = void;
-
-        LHS m_lhs; ///< Left-hand side operand
-        RHS m_rhs; ///< Right-hand side operand
 };
-
-/**
- * \brief Deduction guide for \c Add, allowing CTAD with two expressions.
- */
-template <IsExpression LHS, IsExpression RHS> Add(LHS, RHS) -> Add<LHS, RHS>;
-
-/**
- * \brief Overload for symbolic addition of two expressions.
- *
- * \returns An \c Add<LHS, RHS> expression tree node.
- *
- * \note Requires both operands to satisfy \c IsExpression.
- */
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto operator+(LHS const &lhs, RHS const &rhs) {
-    return Add(lhs, rhs);
-}
-
-/**
- * \class Negation
- * \brief Symbolic unary negation of a single expression.
- *
- * \tparam Expr A symbolic expression (must satisfy \c IsExpression).
- *
- * This class represents the unary minus operation (e.g., \c -x or \c -(x + 3)).
- * It evaluates by recursively evaluating the inner expression and negating the
- * result. The symbolic string form is prefixed with a minus sign and
- * parenthesized if nested.
- *
- * \see ExpressionBase, operator-
- */
-template <IsExpression Expr> struct Negation : ExpressionBase<Negation<Expr>> {
-        /// Construct from a single sub-expression
-        constexpr explicit Negation(Expr const &expr)
-            : m_expr(expr) {}
-
-        /// Evaluate as the negative of the inner expression
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return static_cast<decltype(m_expr.eval(context))>(-1) *
-                   m_expr.eval(context);
-        }
-
-        /// Symbolic representation: prefix with '-'
-        [[nodiscard]] std::string expr() const { return "-" + m_expr.expr(); }
-
-        using is_expression = void;
-        using is_negation = void;
-
-        Expr m_expr; ///< Stored expression to negate
-};
-
-/**
- * \brief Deduction guide for \c Negation, allowing CTAD from a single
- * expression.
- */
-template <IsExpression Expr> Negation(Expr) -> Negation<Expr>;
-/**
- * \brief Overload for symbolic negation of a given expression.
- *
- * \returns A \c Negation<Expr> expression node.
- *
- * \note Requires the expression to satisfy \c IsExpression.
- */
-template <IsExpression Expr> constexpr auto operator-(Expr const &expr) {
-    return Scaled<-1, Expr>{expr};
-    // return Negation<Expr>(expr);
-}
-
-/**
- * \class Subtraction
- * \brief Symbolic binary subtraction of two expressions.
- *
- * \tparam LHS The left-hand side expression (must satisfy \c IsExpression).
- * \tparam RHS The right-hand side expression (must satisfy \c IsExpression).
- *
- * This class represents a symbolic subtraction expression \c (lhs - rhs).
- * Evaluation computes the difference between the recursively evaluated
- * operands. The string form is rendered as \c lhs - rhs without additional
- * parentheses, assuming operands are already properly parenthesized by their
- * respective types.
- *
- * \see operator-, ExpressionBase, Negation
- */
-template <IsExpression LHS, IsExpression RHS>
-struct Subtraction : ExpressionBase<Subtraction<LHS, RHS>> {
-        constexpr Subtraction(LHS const &lhs, RHS const &rhs)
-            : m_lhs(lhs),
-              m_rhs(rhs) {}; ///< constructor
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return m_lhs.eval(context) - m_rhs.eval(context);
-        }
-
-        [[nodiscard]] std::string expr() const {
-            return "(" + m_lhs.expr() + " - " + m_rhs.expr() + ")";
-        }
-        using is_expression = void;
-
-        LHS m_lhs; ///< Left-hand side operand
-        RHS m_rhs; ///< Right-hand side operand
-};
-/**
- * \brief Deduction guide for \c Subtraction, enabling CTAD with two
- * expressions.
- */
-template <IsExpression LHS, IsExpression RHS>
-Subtraction(LHS, RHS) -> Subtraction<LHS, RHS>;
-/**
- * \brief Overload for symbolic binary subtraction of two expressions.
- *
- * Constructs a \c Subtraction<LHS, RHS> expression node representing \c lhs -
- * rhs.
- *
- * \returns A symbolic expression object.
- *
- * \note Requires both operands to satisfy \c IsExpression.
- */
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
-    return Subtraction(lhs, rhs);
-};
-
-/**
- * \class Multiplication
- * \brief Symbolic multiplication of two expressions.
- *
- * \tparam LHS Left-hand side expression (must satisfy \c IsExpression).
- * \tparam RHS Right-hand side expression (must satisfy \c IsExpression).
- *
- * Produces a new symbolic expression representing the product \c (lhs * rhs).
- * Supports recursive evaluation and stringification.
- *
- * \see operator*, ExpressionBase
- */
-template <IsExpression LHS, IsExpression RHS>
-struct Multiplication : ExpressionBase<Multiplication<LHS, RHS>> {
-
-        constexpr Multiplication(LHS const &lhs, RHS const &rhs)
-            : m_lhs(lhs),
-              m_rhs(rhs) {}; ///< constructor
-
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return m_lhs.eval(context) * m_rhs.eval(context);
-        }
-
-        [[nodiscard]] std::string expr() const {
-            return "(" + m_lhs.expr() + " * " + m_rhs.expr() + ")";
-        }
-        using is_expression = void;
-        using is_multiplication = void;
-
-        LHS m_lhs; ///< Left-hand side operand
-        RHS m_rhs; ///< Right-hand side operand
-};
-
-/**
- * \brief Deduction guide for \c Multiplication, enabling CTAD with two
- * expressions.
- */
-template <IsExpression LHS, IsExpression RHS>
-Multiplication(LHS, RHS) -> Multiplication<LHS, RHS>;
-
-/**
- * \brief Overload for symbolic multiplication of two expressions.
- *
- * \returns A \c Multiplication<LHS, RHS> expression node.
- *
- * \note Requires both operands to satisfy \c IsExpression.
- */
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
-    return Multiplication<LHS, RHS>(lhs, rhs);
-}
-template <IsScalar LHS, IsExpression RHS>
-constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
-    return Scaled<LHS::value, RHS>{rhs};
-}
-template <IsExpression LHS, IsScalar RHS>
-constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
-    return Scaled<RHS::value, LHS>{lhs};
-}
-
-// === Simplification Concepts and Rules ===
-
-//[TODO]
-// Mix both (ax + bx) -> (a+b)x and (ax + x) -> (a+1)x
-// If possible, mix the same with subtraction too.
-
-// [TODO] Simplification rules to implement
-//
-// - Add:
-//   - Scalar<v1> + Scalar<v2>           -> Scalar<v1 + v2>  => done
-//   - x + 0                             -> x                => done
-//   - 0 + x                             -> x                => done
-//   - x + x                             -> Scalar<2> * x    => done
-//
-// - Subtraction:
-//   - x - 0                             -> x
-//   - 0 - x                             -> -x
-//   - Scalar<v1> - Scalar<v2>           -> Scalar<v1 - v2>
-//   - x - x                             -> Scalar<0>
-//
-// - Negation:
-//   - -(-x)                             -> x
-//   - -Scalar<v>                        -> Scalar<-v>
-//   - -Scalar<0>                        -> Scalar<0>
-//
-// - Multiplication:
-//   - x * 0                             -> Scalar<0>
-//   - 0 * x                             -> Scalar<0>
-//   - x * 1                             -> x
-//   - 1 * x                             -> x
-//   - Scalar<v1> * Scalar<v2>           -> Scalar<v1 * v2>
-//
-// - Recursive simplification of subexpressions:
-//   - simplify(lhs), simplify(rhs) before forming new expressions
-//
-// - Optional (advanced/future):
-//   - x + y + x                         -> Scalar<2> * x + y
-//   - Canonical ordering                -> (x + y) == (y + x)
-//   - Flatten nested additions          -> (x + (y + z)) -> ((x + y) + z)
-//   - Structural equality/comparison    -> equal(x + 0, x) == true
-
-// === Simplification Overloads ===
-
-//[TODO]
-// change simplify to a member function and use CRTP
-template <char Symbol> constexpr auto simplify_impl(Variable<Symbol> const &v) {
-    return v;
-}
-
-template <auto V> constexpr auto simplify_impl(Scalar<V> const &s) { return s; }
-
-// x + 0 -> x
-template <IsExpression LHS>
-constexpr auto simplify_impl(Add<LHS, Scalar<0>> const &) {
-    return LHS{};
-}
-// 0 + x -> x
-template <IsExpression RHS>
-constexpr auto simplify_impl(Add<Scalar<0>, RHS> const &) {
-    return RHS{};
-}
-// x + x -> 2x
-template <IsExpression Expr>
-constexpr auto simplify_impl(Add<Expr, Expr> const &) {
-    return Scaled<2, Expr>{Expr{}};
-}
-// Scalar<u> + Scalar<v> -> Scalar<u+v>
-template <IsScalar LHS, IsScalar RHS>
-constexpr auto simplify_impl(Add<LHS, RHS> const &) {
-    return Scalar<LHS::value + RHS::value>{};
-}
-// ax + x -> (a+1)x
-template <IsScaled LHS, IsExpression RHS>
-constexpr auto simplify_impl(Add<LHS, RHS> const &) {
-    if constexpr (std::is_same_v<typename LHS::Expr, RHS>) {
-        return Scaled<LHS::coeff + 1, RHS>{RHS{}};
-    }
-}
-// x + ax -> (1+a)x
-template <IsExpression LHS, IsScaled RHS>
-constexpr auto simplify_impl(Add<LHS, RHS> const &) {
-    if constexpr (std::is_same_v<typename RHS::Expr, LHS>) {
-        return Scaled<RHS::coeff + 1, LHS>{LHS{}};
-    }
-}
-// ax + bx -> (a+b)x
-template <IsScaled LHS, IsScaled RHS>
-constexpr auto simplify_impl(Add<LHS, RHS> const &) {
-    if constexpr (std::is_same_v<typename LHS::Expr, typename RHS::Expr>) {
-        using Expr = RHS::Expr;
-        return Scaled<LHS::coeff + RHS::coeff, Expr>{Expr{}};
-    }
-}
-// fallback for Scaled<Coeff, Epxr>{Expr{}}
-template <IsScaled S> constexpr auto simplify_impl(S const &) {
-    return Scaled<S::coeff, typename S::Expr>{typename S::Expr{}};
-}
-
-/// \brief Simplify symbolic addition
-template <IsExpression LHS, IsExpression RHS>
-constexpr auto simplify_impl(Add<LHS, RHS> const &expr) {
-    auto simplified_lhs = simplify_impl(expr.m_lhs);
-    auto simplified_rhs = simplify_impl(expr.m_rhs);
-    using SimplifiedLHS = decltype(simplified_lhs);
-    using SimplifiedRHS = decltype(simplified_rhs);
-
-    return Add<SimplifiedLHS, SimplifiedRHS>{simplified_lhs, simplified_rhs};
-}
-
-/// \brief Top-level simplify function
-template <IsExpression Expr> constexpr auto simplify(Expr const &expr) {
-    auto simplified_expr = simplify_impl(expr);
-    using SimplifiedExpr = decltype(simplified_expr);
-    if constexpr (std::is_same_v<SimplifiedExpr, Expr>)
-        return simplified_expr;
-    else
-        return simplify_impl(simplified_expr);
-}
 
 } // namespace math_expr
 
