@@ -487,6 +487,8 @@ constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
 
 // === Simplification Overloads ===
 
+//[TODO]
+// change simplify to a member function and use CRTP
 template <char Symbol> constexpr auto simplify_impl(Variable<Symbol> const &v) {
     return v;
 }
