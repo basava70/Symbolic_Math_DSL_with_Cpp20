@@ -38,6 +38,8 @@ concept IsExpression = requires { typename T::is_expression; };
 template <typename T>
 concept IsScalar = requires { typename T::is_scalar; } && IsExpression<T>;
 template <typename T>
+concept IsScaled = requires { typename T::is_scaled; } && IsExpression<T>;
+template <typename T>
 concept IsAddition = requires { typename T::is_addition; } && IsExpression<T>;
 template <typename T>
 concept IsNegation = requires { typename T::is_negation; } && IsExpression<T>;
