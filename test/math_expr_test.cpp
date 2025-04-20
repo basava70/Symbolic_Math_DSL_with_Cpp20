@@ -5,7 +5,7 @@
 using namespace math_expr;
 using Catch::Approx;
 
-TEST_CASE("Scalar Evaluation and expr()") {
+TEST_CASE("Scalar") {
     SECTION("Positive Integer") {
         Scalar<42> s;
         REQUIRE(s.eval() == 42);
@@ -37,7 +37,7 @@ TEST_CASE("Scalar Evaluation and expr()") {
     }
 }
 
-TEST_CASE("Variable Evaluation with Context") {
+TEST_CASE("Variable") {
     Variable<'x'> x;
     SECTION("Positive Context") {
         using context = Input<InputPair<'x', 10>>;
@@ -63,5 +63,51 @@ TEST_CASE("Variable Evaluation with Context") {
         using context = Input<InputPair<'x', -1.53743>>;
         REQUIRE(x.eval(context{}) == -1.53743);
         REQUIRE(x.expr() == "x");
+    }
+}
+
+TEST_CASE("Addition") {
+    Scalar<1> one;
+    Scalar<2> two;
+    Scalar<3> three;
+    Variable<'x'> x;
+
+    SECTION("Simple scalar addition") {
+        auto expr = one + two;
+        REQUIRE(expr.eval(Input<>{}) == 3);
+        REQUIRE(expr.expr() == "(1 + 2)");
+    }
+
+    SECTION("Scalar and variable addition") {
+        using context = Input<InputPair<'x', 5>>;
+        auto expr = one + x;
+        REQUIRE(expr.eval(context{}) == 6);
+        REQUIRE(expr.expr() == "(1 + x)");
+    }
+
+    SECTION("Nested addition: (1 + x) + 2") {
+        using context = Input<InputPair<'x', 4>>;
+        auto expr = (one + x) + two;
+        REQUIRE(expr.eval(context{}) == 7);
+        REQUIRE(expr.expr() == "(1 + x + 2)");
+    }
+
+    SECTION("Multi-term addition: 1 + 2 + x + 3") {
+        using context = Input<InputPair<'x', 7>>;
+        auto expr = one + two + x + three;
+        REQUIRE(expr.eval(context{}) == 13);
+        REQUIRE(expr.expr() == "(1 + 2 + x + 3)");
+    }
+
+    SECTION("Addition with only variable") {
+        using context = Input<InputPair<'x', 9>>;
+        auto expr = x + x + x + x;
+        REQUIRE(expr.eval(context{}) == 36);
+        REQUIRE(expr.expr() == "(x + x + x + x)");
+    }
+
+    SECTION("Empty Add expression") {
+        Add<> empty;
+        REQUIRE(empty.expr() == "()");
     }
 }

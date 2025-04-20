@@ -118,9 +118,9 @@ template <IsInputPair... input_pairs> struct Input {
  * \see IsExpression
  */
 template <typename Derived> struct ExpressionBase {
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return derived().eval(context);
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
+            return derived().eval(input);
         }
 
         [[nodiscard]] constexpr std::string expr() const {
@@ -183,9 +183,9 @@ template <auto v> using Scalar_t = Scalar<v>::type;
 template <char symbol> struct Variable : ExpressionBase<Variable<symbol>> {
         using type = char;
 
-        template <IsInput input>
-        [[nodiscard]] constexpr auto eval(input const &context) const noexcept {
-            return context.template get<symbol>();
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
+            return input.template get<symbol>();
         }
 
         [[nodiscard]] constexpr std::string expr() const {
@@ -204,11 +204,11 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
         Scaled(E const &expr)
             : m_expr(expr) {}
         template <IsInput Input>
-        [[nodiscard]] constexpr auto eval(Input const &context) const noexcept {
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
             if constexpr (coeff == 0)
                 return 0;
             else
-                return coeff * m_expr.eval(context);
+                return coeff * m_expr.eval(input);
         }
 
         [[nodiscard]] constexpr std::string expr() const {
@@ -239,11 +239,9 @@ template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
             : m_exprs(exprs...) {}
 
         template <IsInput Input>
-        [[nodiscard]] constexpr auto eval(Input const &context) const noexcept {
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
             return std::apply(
-                [&](auto const &...exprs) {
-                    return (exprs.eval(context) + ...);
-                },
+                [&](auto const &...exprs) { return (exprs.eval(input) + ...); },
                 m_exprs);
         }
 
@@ -251,20 +249,14 @@ template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
             if constexpr (sizeof...(Exprs) == 0) {
                 return "()";
             } else {
-                std::array<std::string, sizeof...(Exprs)> expressions{};
-                std::apply(
-                    [&](auto const &...terms) {
-                        expressions = {terms.expr()...};
+                return std::apply(
+                    [&](auto const &first, auto const &...rest) {
+                        std::string result = "(" + first.expr();
+                        ((result += " + " + rest.expr()), ...);
+                        result += ")";
+                        return result;
                     },
                     m_exprs);
-
-                return "(" +
-                       std::accumulate(std::next(expressions.begin()),
-                                       expressions.end(), expressions[0],
-                                       [](std::string a, std::string const &b) {
-                                           return std::move(a) + " + " + b;
-                                       }) +
-                       ")";
             }
         }
 
@@ -286,6 +278,63 @@ constexpr auto operator+(Add<LHSExprs...> const &lhs, RHS const &rhs) {
     return std::apply(
         [&](auto const &...terms) {
             return Add<LHSExprs..., RHS>{terms..., rhs};
+        },
+        lhs.m_exprs);
+}
+
+template <IsExpression... LHSExprs, IsExpression... RHSExprs>
+constexpr auto operator+(Add<LHSExprs...> const &lhs,
+                         Add<RHSExprs...> const &rhs) {
+    return std::apply([&](auto const &...exprs) { return (lhs + ... + exprs); },
+                      rhs.m_exprs);
+}
+
+// Subtraction Variadic templates desgin
+template <IsExpression... Exprs>
+struct Subtraction : ExpressionBase<Subtraction<Exprs...>> {
+        constexpr explicit Subtraction(Exprs const &...exprs)
+            : m_exprs(exprs...) {}
+
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
+            return std::apply(
+                [&](auto const &...exprs) { return (exprs.eval(input) + ...); },
+                m_exprs);
+        }
+
+        [[nodiscard]] constexpr std::string expr() const {
+            if constexpr (sizeof...(Exprs) == 0)
+                return "()";
+            else {
+                return std::apply(
+                    [&](auto const &first, auto const &...rest) {
+                        std::string result = "(" + first.expr();
+                        ((result += " - " + rest.expr()), ...);
+                        result += ")";
+                        return result;
+                    },
+                    m_exprs);
+            }
+        }
+
+        std::tuple<Exprs...> m_exprs;
+};
+
+// CTAD
+template <IsExpression... Exprs> Subtraction(Exprs...) -> Subtraction<Exprs...>;
+
+// overloading operator- LHS - RHS Base
+template <IsExpression LHS, IsExpression RHS>
+constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
+    return Subtraction<LHS, RHS>{lhs, rhs};
+}
+
+// variadic overload LHSExprs... + RHS
+template <IsExpression... LHSExprs, IsExpression RHS>
+constexpr auto operator-(Subtraction<LHSExprs...> const &lhs, RHS const &rhs) {
+    return std::apply(
+        [&](auto const &...lhs_exprs) {
+            return Subtraction<LHSExprs..., RHS>{lhs_exprs..., rhs};
         },
         lhs.m_exprs);
 }

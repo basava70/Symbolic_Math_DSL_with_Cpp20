@@ -16,6 +16,14 @@ int main() {
               << (scalar1 + variable + scalar3).expr() << "\n";
     std::cout << "scalar1 + scalar2 + variable + scalar3 : "
               << (scalar1 + scalar2 + variable + scalar3).expr() << "\n";
+
+    std::cout << "(scalar1 + scalar4) + (scalar2 + scalar3)"
+              << ((scalar1 + scalar4) + (scalar2 + scalar3)).expr() << "\n";
+    std::cout << "scalar1 - variable : " << (scalar1 - variable).expr() << "\n";
+    std::cout << "scalar1 - variable - scalar3 : "
+              << (scalar1 - variable - scalar3).expr() << "\n";
+    std::cout << "scalar1 - scalar2 - variable - scalar3 : "
+              << (scalar1 - scalar2 - variable - scalar3).expr() << "\n";
     std::cout << "Success!!\n";
     return 0;
 }
