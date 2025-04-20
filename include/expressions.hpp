@@ -2,6 +2,7 @@
 #define MATH_EXPRESSION
 
 #include "utility.hpp"
+#include <array>
 #include <numeric>
 
 namespace math_expr {
@@ -250,13 +251,13 @@ template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
             if constexpr (sizeof...(Exprs) == 0) {
                 return "()";
             } else {
-                std::array<std::string, sizeof...(Exprs)> expressions{
-                    std::apply(
-                        [](auto const &...terms) {
-                            return std::array<std::string, sizeof...(terms)>{
-                                terms.expr()...};
-                        },
-                        m_exprs)};
+                std::array<std::string, sizeof...(Exprs)> expressions{};
+                std::apply(
+                    [&](auto const &...terms) {
+                        expressions = {terms.expr()...};
+                    },
+                    m_exprs);
+
                 return "(" +
                        std::accumulate(std::next(expressions.begin()),
                                        expressions.end(), expressions[0],
@@ -270,6 +271,24 @@ template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
         using is_expression = void;
         using is_add = void;
 };
+
+// CTAD for Add
+template <IsExpression... Exprs> Add(Exprs...) -> Add<Exprs...>;
+
+// Overloading operator+
+template <IsExpression LHS, IsExpression RHS>
+constexpr auto operator+(LHS const &lhs, RHS const &rhs) {
+    return Add<LHS, RHS>(lhs, rhs);
+}
+
+template <IsExpression... LHSExprs, IsExpression RHS>
+constexpr auto operator+(Add<LHSExprs...> const &lhs, RHS const &rhs) {
+    return std::apply(
+        [&](auto const &...terms) {
+            return Add<LHSExprs..., RHS>{terms..., rhs};
+        },
+        lhs.m_exprs);
+}
 
 } // namespace math_expr
 

@@ -11,7 +11,11 @@ int main() {
     auto scalar4 = Scalar<4>{};
     auto context = Input<InputPair<'x', 3>>{};
 
-    std::cout << "Scalar";
+    std::cout << "scalar1 + variable : " << (scalar1 + variable).expr() << "\n";
+    std::cout << "scalar1 + variable + scalar3 : "
+              << (scalar1 + variable + scalar3).expr() << "\n";
+    std::cout << "scalar1 + scalar2 + variable + scalar3 : "
+              << (scalar1 + scalar2 + variable + scalar3).expr() << "\n";
     std::cout << "Success!!\n";
     return 0;
 }
