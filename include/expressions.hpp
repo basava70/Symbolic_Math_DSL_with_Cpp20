@@ -2,8 +2,6 @@
 #define MATH_EXPRESSION
 
 #include "utility.hpp"
-#include <array>
-#include <numeric>
 
 namespace math_expr {
 
@@ -149,7 +147,7 @@ template <typename Derived> struct ExpressionBase {
  */
 template <auto v>
     requires IsArithmetic<decltype(v)>
-struct Scalar : ExpressionBase<Scalar<v>> {
+struct RawScalar : ExpressionBase<RawScalar<v>> {
         static constexpr decltype(v) value = v; ///< The constant value
         using type = decltype(v);               ///< Deduced type of the value
 
@@ -165,11 +163,12 @@ struct Scalar : ExpressionBase<Scalar<v>> {
         }
 
         using is_expression = void;
-        using is_scalar = void;
+        using is_rawscalar = void;
 };
 
-template <auto v> constexpr inline decltype(v) Scalar_v = Scalar<v>::value;
-template <auto v> using Scalar_t = Scalar<v>::type;
+template <auto v>
+constexpr inline decltype(v) RawScalar_v = RawScalar<v>::value;
+template <auto v> using RawScalar_t = RawScalar<v>::type;
 
 /**
  * \class RawVariable
@@ -194,7 +193,7 @@ struct RawVariable : ExpressionBase<RawVariable<symbol>> {
         }
 
         using is_expression = void;
-        using is_raw_variable = void;
+        using is_rawvariable = void;
 };
 
 template <auto Coeff, IsExpression E>
@@ -204,6 +203,11 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
 
         Scaled(E const &expr)
             : m_expr(expr) {}
+        [[nodiscard]] constexpr auto eval() const noexcept {
+            // \brief  We are using eval() for Scalar. Since Scalar<v> ->
+            // Scaled<1, RawScalar<v>>, we return RawScalar.eval()
+            return m_expr.eval();
+        }
         template <IsInput Input>
         [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
             if constexpr (coeff == 0)
@@ -232,6 +236,14 @@ template <char symbol> struct Variable : Scaled<1, RawVariable<symbol>> {
         constexpr Variable()
             : Scaled<1, RawVariable<symbol>>{RawVariable<symbol>{}} {}
         using is_variable = void;
+};
+
+template <auto v>
+    requires IsArithmetic<decltype(v)>
+struct Scalar : Scaled<1, RawScalar<v>> {
+        constexpr Scalar()
+            : Scaled<1, RawScalar<v>>{RawScalar<v>{}} {}
+        using is_scalar = void;
 };
 
 // [TODO]

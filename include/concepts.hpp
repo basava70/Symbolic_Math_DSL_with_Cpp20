@@ -36,6 +36,11 @@ concept IsInput = requires { typename T::is_input; };
 template <typename T>
 concept IsExpression = requires { typename T::is_expression; };
 template <typename T>
+concept IsRawVariable =
+    requires { typename T::is_rawvariable; } && IsExpression<T>;
+template <typename T>
+concept IsRawScalar = requires { typename T::is_rawscalar; } && IsExpression<T>;
+template <typename T>
 concept IsScalar = requires { typename T::is_scalar; } && IsExpression<T>;
 template <typename T>
 concept IsScaled = requires { typename T::is_scaled; } && IsExpression<T>;
