@@ -308,57 +308,32 @@ constexpr auto operator+(Add<LHSExprs...> const &lhs,
                       rhs.m_exprs);
 }
 
-// Subtraction Variadic templates desgin
-template <IsExpression... Exprs>
-struct Subtraction : ExpressionBase<Subtraction<Exprs...>> {
-        constexpr explicit Subtraction(Exprs const &...exprs)
-            : m_exprs(exprs...) {}
+// Unary operator-
+template <IsExpression Expr> constexpr auto operator-(Expr const &expr) {
+    return Scaled<-1, Expr>{expr};
+}
 
-        template <IsInput Input>
-        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
-            return std::apply(
-                [&](auto const &first, auto const &...rest) {
-                    return (first.eval(input) - ... - rest.eval(input));
-                },
-                m_exprs);
-        }
+template <IsScaled S> constexpr auto operator-(S const &s) {
+    constexpr auto new_coeff = -1 * S::coeff;
+    using Expr = S::Expr;
+    return Scaled<new_coeff, Expr>{s.m_expr};
+}
 
-        [[nodiscard]] constexpr std::string expr() const {
-            if constexpr (sizeof...(Exprs) == 0)
-                return "()";
-            else {
-                return std::apply(
-                    [&](auto const &first, auto const &...rest) {
-                        std::string result = "(" + first.expr();
-                        ((result += " - " + rest.expr()), ...);
-                        result += ")";
-                        return result;
-                    },
-                    m_exprs);
-            }
-        }
-
-        std::tuple<Exprs...> m_exprs;
-};
-
-// CTAD
-template <IsExpression... Exprs> Subtraction(Exprs...) -> Subtraction<Exprs...>;
-
-// overloading operator- LHS - RHS Base
+// Binary base operator-
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
-    return Subtraction<LHS, RHS>{lhs, rhs};
+    return lhs + (-rhs);
 }
 
-// variadic overload LHSExprs... + RHS
-template <IsExpression... LHSExprs, IsExpression RHS>
-constexpr auto operator-(Subtraction<LHSExprs...> const &lhs, RHS const &rhs) {
-    return std::apply(
-        [&](auto const &...lhs_exprs) {
-            return Subtraction<LHSExprs..., RHS>{lhs_exprs..., rhs};
-        },
-        lhs.m_exprs);
-}
+// template <IsScaled LHS, IsScaled RHS>
+// constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
+//     return lhs + (-rhs);
+// }
+//
+// template <IsAddition LHS, IsScaled RHS>
+// constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
+//     return lhs + (-rhs);
+// }
 
 } // namespace math_expr
 

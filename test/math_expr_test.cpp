@@ -112,55 +112,68 @@ TEST_CASE("Addition") {
     }
 }
 
-TEST_CASE("Subtraction") {
-    Scalar<10> ten;
-    Scalar<3> three;
-    Scalar<2> two;
-    Scalar<0> zero;
+TEST_CASE("Unary Negation and Subtraction Composition") {
     Variable<'x'> x;
+    Variable<'y'> y;
+    Scalar<3> three;
+    Scalar<-2> neg_two;
 
-    SECTION("Simple scalar subtraction: 10 - 3") {
-        auto expr = ten - three;
-        REQUIRE(expr.eval(Input<>{}) == 7);
-        REQUIRE(expr.expr() == "(10 - 3)");
+    using context = Input<InputPair<'x', 5>, InputPair<'y', 2>>;
+
+    SECTION("Unary negation of variable") {
+        auto expr = -x;
+        REQUIRE(expr.eval(context{}) == -5);
+        REQUIRE(expr.expr() == "(-1 * x)");
     }
 
-    SECTION("Chained subtraction: 10 - 3 - 2") {
-        auto expr = ten - three - two;
-        REQUIRE(expr.eval(Input<>{}) == 5); // 10 - 3 - 2
-        REQUIRE(expr.expr() == "(10 - 3 - 2)");
+    SECTION("Unary negation of scalar") {
+        auto expr = -three;
+        REQUIRE(expr.eval(context{}) == -3);
+        REQUIRE(expr.expr() == "(-1 * 3)");
     }
 
-    SECTION("Variable minus constant: x - 3") {
-        using context = Input<InputPair<'x', 10>>;
-        auto expr = x - three;
-        REQUIRE(expr.eval(context{}) == 7); // 10 - 3
-        REQUIRE(expr.expr() == "(x - 3)");
+    SECTION("Double negation") {
+        auto expr = -(-x);
+        REQUIRE(expr.eval(context{}) == 5);
+        REQUIRE(expr.expr() == "x");
     }
 
-    SECTION("Variable minus variable: x - x") {
-        using context = Input<InputPair<'x', 6>>;
-        auto expr = x - x;
-        REQUIRE(expr.eval(context{}) == 0);
-        REQUIRE(expr.expr() == "(x - x)");
+    SECTION("Negated scaled expression") {
+        auto expr = -Scaled<2, decltype(x)>{x};
+        REQUIRE(expr.eval(context{}) == -10);
+        REQUIRE(expr.expr() == "(-2 * x)");
     }
 
-    SECTION("Chained subtraction with variable: x - 3 - 2") {
-        using context = Input<InputPair<'x', 10>>;
-        auto expr = x - three - two;
-        REQUIRE(expr.eval(context{}) == 5); // 10 - 3 - 2
-        REQUIRE(expr.expr() == "(x - 3 - 2)");
+    SECTION("Addition with negated variable") {
+        auto expr = x + (-y);
+        REQUIRE(expr.eval(context{}) == 3);
+        REQUIRE(expr.expr() == "(x + (-1 * y))");
     }
 
-    SECTION("Subtraction with zero: x - 0") {
-        using context = Input<InputPair<'x', 42>>;
-        auto expr = x - zero;
-        REQUIRE(expr.eval(context{}) == 42); // 42 - 0
-        REQUIRE(expr.expr() == "(x - 0)");
+    SECTION("Negated expression in nested Add") {
+        auto expr = x + y + (-x) + (-three);
+        REQUIRE(expr.eval(context{}) == 2 + 5 - 5 - 3); // = -1
+        REQUIRE(expr.expr() == "(x + y + (-1 * x) + (-1 * 3))");
     }
 
-    SECTION("Empty Subtraction expression") {
-        Subtraction<> empty;
-        REQUIRE(empty.expr() == "()");
+    SECTION("Subtraction rewritten as addition") {
+        auto expr = x - y;
+        auto rewritten = x + (-y);
+        REQUIRE(expr.eval(context{}) == rewritten.eval(context{}));
+        REQUIRE(expr.expr() ==
+                rewritten.expr()); // only if you internally rewrite Subtraction
+    }
+
+    SECTION("Subtraction + Negation") {
+        auto expr = (x - y) + (-x);
+        REQUIRE(expr.eval(context{}) == 5 - 2 - 5); // = -2
+        REQUIRE(expr.expr() == "(x + (-1 * y) + (-1 * x))");
+    }
+
+    SECTION("Deep nested combination") {
+        auto expr = x + (-x - y + y - three);
+        REQUIRE(expr.eval(context{}) == 0 - 3);
+        REQUIRE(expr.expr() ==
+                "(x + ((-1 * x) + (-1 * y) + y + (-1 * 3)))"); // or normalized
     }
 }
