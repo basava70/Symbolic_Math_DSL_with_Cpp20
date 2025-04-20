@@ -90,11 +90,11 @@ template <char symbol> struct GetImpl<symbol> {
  * \brief Represents a symbolic context made up of InputPairs.
  *
  * Used for compile-time evaluation of symbolic expressions such as
- * \c Variable<'x'>, by resolving them through \c get<symbol>().
+ * \c RawVariable<'x'>, by resolving them through \c get<symbol>().
  *
  * \tparam input_pairs A variadic list of \c InputPair bindings.
  *
- * \see InputPair, GetImpl, Variable
+ * \see InputPair, GetImpl, RawVariable
  */
 
 // [TODO] Runtime input
@@ -111,7 +111,7 @@ template <IsInputPair... input_pairs> struct Input {
  *
  * Provides uniform \c eval() and \c expr() forwarding interfaces for derived
  * types. Enables static polymorphism for symbolic operations like \c Add,
- * \c Scalar, \c Variable.
+ * \c Scalar, \c RawVariable.
  *
  * \tparam Derived The expression type inheriting from this base.
  *
@@ -172,7 +172,7 @@ template <auto v> constexpr inline decltype(v) Scalar_v = Scalar<v>::value;
 template <auto v> using Scalar_t = Scalar<v>::type;
 
 /**
- * \class Variable
+ * \class RawVariable
  * \brief Represents a symbolic variable that evaluates using a symbolic input
  * context.
  *
@@ -180,7 +180,8 @@ template <auto v> using Scalar_t = Scalar<v>::type;
  *
  * \see Input, ExpressionBase
  */
-template <char symbol> struct Variable : ExpressionBase<Variable<symbol>> {
+template <char symbol>
+struct RawVariable : ExpressionBase<RawVariable<symbol>> {
         using type = char;
 
         template <IsInput Input>
@@ -193,7 +194,7 @@ template <char symbol> struct Variable : ExpressionBase<Variable<symbol>> {
         }
 
         using is_expression = void;
-        using is_variable = void;
+        using is_raw_variable = void;
 };
 
 template <auto Coeff, IsExpression E>
@@ -225,6 +226,12 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
         E m_expr;
         using is_expression = void;
         using is_scaled = void;
+};
+
+template <char symbol> struct Variable : Scaled<1, RawVariable<symbol>> {
+        constexpr Variable()
+            : Scaled<1, RawVariable<symbol>>{RawVariable<symbol>{}} {}
+        using is_variable = void;
 };
 
 // [TODO]
