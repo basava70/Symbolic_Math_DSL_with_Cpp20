@@ -298,7 +298,9 @@ struct Subtraction : ExpressionBase<Subtraction<Exprs...>> {
         template <IsInput Input>
         [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
             return std::apply(
-                [&](auto const &...exprs) { return (exprs.eval(input) + ...); },
+                [&](auto const &first, auto const &...rest) {
+                    return (first.eval(input) - ... - rest.eval(input));
+                },
                 m_exprs);
         }
 

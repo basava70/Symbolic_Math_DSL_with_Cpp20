@@ -111,3 +111,56 @@ TEST_CASE("Addition") {
         REQUIRE(empty.expr() == "()");
     }
 }
+
+TEST_CASE("Subtraction") {
+    Scalar<10> ten;
+    Scalar<3> three;
+    Scalar<2> two;
+    Scalar<0> zero;
+    Variable<'x'> x;
+
+    SECTION("Simple scalar subtraction: 10 - 3") {
+        auto expr = ten - three;
+        REQUIRE(expr.eval(Input<>{}) == 7);
+        REQUIRE(expr.expr() == "(10 - 3)");
+    }
+
+    SECTION("Chained subtraction: 10 - 3 - 2") {
+        auto expr = ten - three - two;
+        REQUIRE(expr.eval(Input<>{}) == 5); // 10 - 3 - 2
+        REQUIRE(expr.expr() == "(10 - 3 - 2)");
+    }
+
+    SECTION("Variable minus constant: x - 3") {
+        using context = Input<InputPair<'x', 10>>;
+        auto expr = x - three;
+        REQUIRE(expr.eval(context{}) == 7); // 10 - 3
+        REQUIRE(expr.expr() == "(x - 3)");
+    }
+
+    SECTION("Variable minus variable: x - x") {
+        using context = Input<InputPair<'x', 6>>;
+        auto expr = x - x;
+        REQUIRE(expr.eval(context{}) == 0);
+        REQUIRE(expr.expr() == "(x - x)");
+    }
+
+    SECTION("Chained subtraction with variable: x - 3 - 2") {
+        using context = Input<InputPair<'x', 10>>;
+        auto expr = x - three - two;
+        REQUIRE(expr.eval(context{}) == 5); // 10 - 3 - 2
+        REQUIRE(expr.expr() == "(x - 3 - 2)");
+    }
+
+    SECTION("Subtraction with zero: x - 0") {
+        using context = Input<InputPair<'x', 42>>;
+        auto expr = x - zero;
+        REQUIRE(expr.eval(context{}) == 42); // 42 - 0
+        REQUIRE(expr.expr() == "(x - 0)");
+    }
+
+    SECTION("Empty Subtraction expression") {
+        Subtraction<> empty;
+        REQUIRE(empty.expr() == "()");
+    }
+}
