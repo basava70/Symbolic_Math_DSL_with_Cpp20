@@ -3,7 +3,7 @@
 using namespace math_dsl;
 using namespace math_dsl::utility;
 int main() {
-    auto variable = Variable<'x'>{};
+    auto x = Variable<'x'>{};
     auto zero_scalar = Scalar<0>{};
     auto scalar1 = Scalar<1>{};
     auto scalar2 = Scalar<2>{};
@@ -11,19 +11,20 @@ int main() {
     auto scalar4 = Scalar<4>{};
     auto context = Input<InputPair<'x', 3>>{};
 
-    std::cout << "scalar1 + variable : " << (scalar1 + variable).expr() << "\n";
-    std::cout << "scalar1 + variable + scalar3 : "
-              << (scalar1 + variable + scalar3).expr() << "\n";
-    std::cout << "scalar1 + scalar2 + variable + scalar3 : "
-              << (scalar1 + scalar2 + variable + scalar3).expr() << "\n";
+    std::cout << "scalar1 + x : " << (scalar1 + x).expr() << "\n";
+    std::cout << "scalar1 + x + scalar3 : " << (scalar1 + x + scalar3).expr()
+              << "\n";
+    std::cout << "scalar1 + scalar2 + x + scalar3 : "
+              << (scalar1 + scalar2 + x + scalar3).expr() << "\n";
 
     std::cout << "(scalar1 + scalar4) + (scalar2 + scalar3)"
               << ((scalar1 + scalar4) + (scalar2 + scalar3)).expr() << "\n";
-    std::cout << "scalar1 - variable : " << (scalar1 - variable).expr() << "\n";
-    std::cout << "scalar1 - variable - scalar3 : "
-              << (scalar1 - variable - scalar3).expr() << "\n";
-    std::cout << "scalar1 - scalar2 - variable - scalar3 : "
-              << (scalar1 - scalar2 - variable - scalar3).expr() << "\n";
+    std::cout << "scalar1 - x : " << (scalar1 - x).expr() << "\n";
+    std::cout << "scalar1 - x - scalar3 : " << (scalar1 - x - scalar3).expr()
+              << "\n";
+    std::cout << "scalar1 - scalar2 - x - scalar3 : "
+              << (scalar1 - scalar2 - x - scalar3).expr() << "\n";
+
     std::cout << "Success!!\n";
     return 0;
 }

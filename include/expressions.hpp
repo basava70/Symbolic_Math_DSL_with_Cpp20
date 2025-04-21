@@ -223,6 +223,7 @@ template <auto v>
 struct Scalar : Scaled<1, RawScalar<v>> {
         constexpr Scalar()
             : Scaled<1, RawScalar<v>>{RawScalar<v>{}} {}
+        static constexpr auto value = v;
         using is_scalar = void;
 };
 
@@ -350,6 +351,7 @@ struct Multiplication : ExpressionBase<Multiplication<Exprs...>> {
 };
 
 // Base operator*
+
 template <IsScaled LHS, IsScaled RHS>
 constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
     constexpr auto new_coeff = LHS::coeff * RHS::coeff;
