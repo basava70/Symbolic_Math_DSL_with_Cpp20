@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-set(PROJECT_NAME mathematical_expression)
+set(PROJECT_NAME math_dsl)
 project(
   ${PROJECT_NAME}
   VERSION 0.1
@@ -30,8 +30,3 @@ add_executable(${PROJECT_NAME}_test ${TEST_FILES})
 # define include directory
 target_link_libraries(${PROJECT_NAME}_test PRIVATE Catch2::Catch2WithMain)
 target_include_directories(${PROJECT_NAME}_test PRIVATE ${INCLUDE_DIR})
-
-# Enable test discovery (for CTest integration)
-include(CTest)
-include(Catch)
-catch_discover_tests(${PROJECT_NAME}_test EXTRA_ARGS -s -r compact)
