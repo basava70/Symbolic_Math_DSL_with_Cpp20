@@ -323,6 +323,40 @@ constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
     return lhs + (-rhs);
 }
 
+template <IsExpression... Exprs>
+struct Multiplication : ExpressionBase<Multiplication<Exprs...>> {
+        constexpr Multiplication(Exprs const &...exprs)
+            : m_exprs(exprs...) {}
+
+        template <IsInput Input>
+        [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
+
+            return std::apply(
+                [&](auto const &...terms) { return (terms.eval(input) * ...); },
+                m_exprs);
+        }
+
+        [[nodiscard]] std::string expr() const {
+            return std::apply(
+                [&](auto const &first, auto const &...last) {
+                    std::string result = first.expr();
+                    ((result += last.expr()), ...);
+                    return result;
+                },
+                m_exprs);
+        }
+
+        std::tuple<Exprs...> m_exprs;
+};
+
+// Base operator*
+template <IsScaled LHS, IsScaled RHS>
+constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
+    constexpr auto new_coeff = LHS::coeff * RHS::coeff;
+    // using NewExpr = Multplication<LHS,RHS>;
+    // return Scaled<new_coeff,
+}
+
 /// \}
 
 } // namespace math_dsl
