@@ -80,6 +80,7 @@ TEST_CASE("Negation and Subtraction", "[Negation][Subtraction]") {
         REQUIRE((-x).eval(Ctx{}) == -5);
         REQUIRE((-three).eval() == -3);
         REQUIRE((-x).expr() == "(-1 * x)");
+        REQUIRE((-three).expr() == "-3");
     }
 
     SECTION("Double negation simplifies back") {
@@ -109,6 +110,6 @@ TEST_CASE("Negation and Subtraction", "[Negation][Subtraction]") {
     SECTION("Deeply nested composition with subtraction") {
         auto expr = x + (-x - y + y - three);
         REQUIRE(expr.eval(Ctx{}) == -3);
-        REQUIRE(expr.expr() == "(x + ((-1 * x) + (-1 * y) + y + (-1 * 3)))");
+        REQUIRE(expr.expr() == "(x + (-1 * x) + (-1 * y) + y + (-1 * 3))");
     }
 }

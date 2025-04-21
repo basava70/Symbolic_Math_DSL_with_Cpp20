@@ -174,7 +174,7 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
             : m_expr(expr) {}
 
         [[nodiscard]] constexpr auto eval() const noexcept {
-            return m_expr.eval();
+            return coeff * m_expr.eval();
         }
 
         template <IsInput Input>
@@ -278,18 +278,29 @@ constexpr auto operator+(LHS const &lhs, RHS const &rhs) {
 template <IsExpression... LHSExprs, IsExpression RHS>
 constexpr auto operator+(Add<LHSExprs...> const &lhs, RHS const &rhs) {
     return std::apply(
-        [&](auto const &...terms) {
-            return Add<LHSExprs..., RHS>{terms..., rhs};
+        [&](auto const &...exprs) {
+            return Add<LHSExprs..., RHS>{exprs..., rhs};
         },
         lhs.m_exprs);
 }
 
-/** \brief Merge two Add nodes recursively. */
+template <IsExpression LHS, IsExpression... RHSExprs>
+constexpr auto operator+(LHS const &lhs, Add<RHSExprs...> const &rhs) {
+    return std::apply(
+        [&](auto const &...terms) {
+            return Add<LHS, RHSExprs...>{lhs, terms...};
+        },
+        rhs.m_exprs);
+}
+
 template <IsExpression... LHSExprs, IsExpression... RHSExprs>
 constexpr auto operator+(Add<LHSExprs...> const &lhs,
                          Add<RHSExprs...> const &rhs) {
-    return std::apply([&](auto const &...exprs) { return (lhs + ... + exprs); },
-                      rhs.m_exprs);
+    return std::apply(
+        [&](auto const &...rhs_terms) {
+            return (lhs + ... + rhs_terms); // recursive reuse of Add + Expr
+        },
+        rhs.m_exprs);
 }
 
 /** \brief Unary negation of an expression. */
