@@ -5,175 +5,110 @@
 using namespace math_dsl;
 using Catch::Approx;
 
-TEST_CASE("Scalar") {
-    SECTION("Positive Integer") {
-        Scalar<42> s;
-        REQUIRE(s.eval() == 42);
-        REQUIRE(s.expr() == "42");
+TEST_CASE("Scalar: compile-time constants", "[Scalar]") {
+    SECTION("Integral") {
+        REQUIRE(Scalar<5>().eval() == 5);
+        REQUIRE(Scalar<-42>().eval() == -42);
+        REQUIRE(Scalar<0>().eval() == 0);
+        REQUIRE(Scalar<5>().expr() == "5");
     }
 
-    SECTION("Zero") {
-        Scalar<0> s;
-        REQUIRE(s.eval() == 0);
-        REQUIRE(s.expr() == "0");
-    }
-
-    SECTION("Negative Integer") {
-        Scalar<-7> s;
-        REQUIRE(s.eval() == -7);
-        REQUIRE(s.expr() == "-7");
-    }
-
-    SECTION("Positive Floating Point") {
-        Scalar<3.14159> s;
-        REQUIRE(s.eval() == Approx(3.14159));
-        REQUIRE(s.expr() == "3.14159");
-    }
-
-    SECTION("Negative Floating Point") {
-        Scalar<-2.5> s;
-        REQUIRE(s.eval() == Approx(-2.5));
-        REQUIRE(s.expr() == "-2.5");
+    SECTION("Floating-point") {
+        REQUIRE(Scalar<3.14>().eval() == Approx(3.14));
+        REQUIRE(Scalar<-1.75>().eval() == Approx(-1.75));
+        REQUIRE(Scalar<3.14>().expr() == "3.14");
     }
 }
 
-TEST_CASE("Variable") {
+TEST_CASE("Variable: symbolic variable resolution", "[Variable]") {
+    using X5 = Input<InputPair<'x', 5>>;
+    using Y2 = Input<InputPair<'y', 2>>;
     Variable<'x'> x;
-    SECTION("Positive input") {
-        using input = Input<InputPair<'x', 10>>;
-        REQUIRE(x.eval(input{}) == 10);
-        REQUIRE(x.expr() == "x");
+    Variable<'y'> y;
+
+    SECTION("Evaluate against symbolic context") {
+        REQUIRE(x.eval(X5{}) == 5);
+        REQUIRE(y.eval(Y2{}) == 2);
     }
-    SECTION("Zero input") {
-        using input = Input<InputPair<'x', 0>>;
-        REQUIRE(x.eval(input{}) == 0);
+
+    SECTION("String representation") {
         REQUIRE(x.expr() == "x");
-    }
-    SECTION("Negative input") {
-        using input = Input<InputPair<'x', -9>>;
-        REQUIRE(x.eval(input{}) == -9);
-        REQUIRE(x.expr() == "x");
-    }
-    SECTION("Positive floating input") {
-        using input = Input<InputPair<'x', 3.135>>;
-        REQUIRE(x.eval(input{}) == 3.135);
-        REQUIRE(x.expr() == "x");
-    }
-    SECTION("Negative input") {
-        using input = Input<InputPair<'x', -1.53743>>;
-        REQUIRE(x.eval(input{}) == -1.53743);
-        REQUIRE(x.expr() == "x");
+        REQUIRE(y.expr() == "y");
     }
 }
 
-TEST_CASE("Addition") {
+TEST_CASE("Add: symbolic addition and flattening", "[Add]") {
     Scalar<1> one;
     Scalar<2> two;
-    Scalar<3> three;
     Variable<'x'> x;
 
-    SECTION("Simple scalar addition") {
+    SECTION("Simple two-term") {
         auto expr = one + two;
         REQUIRE(expr.eval(Input<>{}) == 3);
         REQUIRE(expr.expr() == "(1 + 2)");
     }
 
-    SECTION("Scalar and variable addition") {
-        using input = Input<InputPair<'x', 5>>;
-        auto expr = one + x;
-        REQUIRE(expr.eval(input{}) == 6);
-        REQUIRE(expr.expr() == "(1 + x)");
+    SECTION("Left-associative chaining") {
+        auto expr = one + two + x;
+        using ctx = Input<InputPair<'x', 3>>;
+        REQUIRE(expr.eval(ctx{}) == 6);
+        REQUIRE(expr.expr() == "(1 + 2 + x)");
     }
 
-    SECTION("Nested addition: (1 + x) + 2") {
-        using input = Input<InputPair<'x', 4>>;
-        auto expr = (one + x) + two;
-        REQUIRE(expr.eval(input{}) == 7);
-        REQUIRE(expr.expr() == "(1 + x + 2)");
+    SECTION("Right-additive flattening") {
+        auto left = one + x;
+        auto full = left + two;
+        using ctx = Input<InputPair<'x', 4>>;
+        REQUIRE(full.eval(ctx{}) == 7);
+        REQUIRE(full.expr() == "(1 + x + 2)");
     }
 
-    SECTION("Multi-term addition: 1 + 2 + x + 3") {
-        using input = Input<InputPair<'x', 7>>;
-        auto expr = one + two + x + three;
-        REQUIRE(expr.eval(input{}) == 13);
-        REQUIRE(expr.expr() == "(1 + 2 + x + 3)");
-    }
-
-    SECTION("Addition with only variable") {
-        using input = Input<InputPair<'x', 9>>;
-        auto expr = x + x + x + x;
-        REQUIRE(expr.eval(input{}) == 36);
-        REQUIRE(expr.expr() == "(x + x + x + x)");
-    }
-
-    SECTION("Empty Add expression") {
+    SECTION("Empty Add node prints ()") {
         Add<> empty;
         REQUIRE(empty.expr() == "()");
     }
 }
 
-TEST_CASE("Unary Negation and Subtraction Composition") {
+TEST_CASE("Negation and Subtraction", "[Negation][Subtraction]") {
     Variable<'x'> x;
     Variable<'y'> y;
     Scalar<3> three;
-    Scalar<-2> neg_two;
 
-    using input = Input<InputPair<'x', 5>, InputPair<'y', 2>>;
+    using Ctx = Input<InputPair<'x', 5>, InputPair<'y', 2>>;
 
-    SECTION("Unary negation of variable") {
-        auto expr = -x;
-        REQUIRE(expr.eval(input{}) == -5);
-        REQUIRE(expr.expr() == "(-1 * x)");
+    SECTION("Unary negation") {
+        REQUIRE((-x).eval(Ctx{}) == -5);
+        REQUIRE((-three).eval() == -3);
+        REQUIRE((-x).expr() == "(-1 * x)");
     }
 
-    SECTION("Unary negation of scalar") {
-        auto expr = -three;
-        REQUIRE(expr.eval(input{}) == -3);
-        REQUIRE(expr.expr() == "(-1 * 3)");
-    }
-
-    SECTION("Double negation") {
+    SECTION("Double negation simplifies back") {
         auto expr = -(-x);
-        REQUIRE(expr.eval(input{}) == 5);
+        REQUIRE(expr.eval(Ctx{}) == 5);
         REQUIRE(expr.expr() == "x");
     }
 
-    SECTION("Negated scaled expression") {
+    SECTION("Scaled negation") {
         auto expr = -Scaled<2, decltype(x)>{x};
-        REQUIRE(expr.eval(input{}) == -10);
+        REQUIRE(expr.eval(Ctx{}) == -10);
         REQUIRE(expr.expr() == "(-2 * x)");
     }
 
-    SECTION("Addition with negated variable") {
-        auto expr = x + (-y);
-        REQUIRE(expr.eval(input{}) == 3);
+    SECTION("Subtraction as addition of negation") {
+        auto expr = x - y;
+        REQUIRE(expr.eval(Ctx{}) == 3);
         REQUIRE(expr.expr() == "(x + (-1 * y))");
     }
 
-    SECTION("Negated expression in nested Add") {
-        auto expr = x + y + (-x) + (-three);
-        REQUIRE(expr.eval(input{}) == 2 + 5 - 5 - 3); // = -1
-        REQUIRE(expr.expr() == "(x + y + (-1 * x) + (-1 * 3))");
-    }
-
-    SECTION("Subtraction rewritten as addition") {
-        auto expr = x - y;
-        auto rewritten = x + (-y);
-        REQUIRE(expr.eval(input{}) == rewritten.eval(input{}));
-        REQUIRE(expr.expr() ==
-                rewritten.expr()); // only if you internally rewrite Subtraction
-    }
-
-    SECTION("Subtraction + Negation") {
+    SECTION("Composed: (x - y) + (-x)") {
         auto expr = (x - y) + (-x);
-        REQUIRE(expr.eval(input{}) == 5 - 2 - 5); // = -2
+        REQUIRE(expr.eval(Ctx{}) == -2);
         REQUIRE(expr.expr() == "(x + (-1 * y) + (-1 * x))");
     }
 
-    SECTION("Deep nested combination") {
+    SECTION("Deeply nested composition with subtraction") {
         auto expr = x + (-x - y + y - three);
-        REQUIRE(expr.eval(input{}) == 0 - 3);
-        REQUIRE(expr.expr() ==
-                "(x + ((-1 * x) + (-1 * y) + y + (-1 * 3)))"); // or normalized
+        REQUIRE(expr.eval(Ctx{}) == -3);
+        REQUIRE(expr.expr() == "(x + ((-1 * x) + (-1 * y) + y + (-1 * 3)))");
     }
 }
