@@ -1,7 +1,7 @@
 #include "expressions.hpp"
 #include <iostream>
-using namespace math_expr;
-using namespace math_expr::utility;
+using namespace math_dsl;
+using namespace math_dsl::utility;
 int main() {
     auto variable = Variable<'x'>{};
     auto zero_scalar = Scalar<0>{};

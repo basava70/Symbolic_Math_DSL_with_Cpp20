@@ -1,67 +1,52 @@
-#ifndef MATH_EXPRESSION
-#define MATH_EXPRESSION
+/**
+ * \file expressions.hpp
+ * \brief Compile-time symbolic math DSL using modern C++20.
+ *
+ * This header implements a domain-specific language (DSL) for symbolic
+ * algebraic expressions with compile-time evaluation and formatting support.
+ *
+ * \note Inspired by expression template techniques used in libraries like
+ * Eigen.
+ *
+ * All constructs are normalized to scaled form for uniformity, and composed
+ * using CRTP for zero-overhead polymorphism. This DSL is extensible toward
+ * simplification, symbolic differentiation, and backend-optimized evaluation.
+ *
+ * \author Seshadri Basava
+ * \date 2025
+ */
+
+#ifndef MATH_DSL
+#define MATH_DSL
 
 #include "utility.hpp"
 
-namespace math_expr {
+namespace math_dsl {
 
 /**
  * \class InputPair
- * \brief Represents a symbolic key-value binding used in symbolic context.
+ * \brief Represents a symbolic key-value binding at compile time.
+ * \tparam symbol Symbolic variable identifier (e.g., 'x')
+ * \tparam v Compile-time constant value associated with symbol
  *
- * \tparam symbol A character literal representing the symbolic name (e.g.,
- * 'x').
- * \tparam v    The compile-time constant value associated with the symbol.
- *
- * This structure is used as the building block for input in the symbolic
- * environments like \c Input<InputPair<'x', 5>>.
- *
- * \see Input, IsInputPair
+ * Used in symbolic environments (Input) to evaluate expressions.
  */
 template <char symbol, auto v>
     requires IsArithmetic<decltype(v)>
 struct InputPair {
-        static constexpr char id = symbol; ///< Symbolic identifier (e.g., 'x')
-        static constexpr auto value =
-            v;                      ///< Constant value bound to the identifier
-        using type = decltype(v);   ///< Deduced type of the value
-        using is_input_pair = void; ///< Tag used for concept detection
+        static constexpr char id = symbol;
+        static constexpr auto value = v;
+        using type = decltype(v);
+        using is_input_pair = void;
 };
 
 /**
- * \class GetImpl
- * \brief Recursive compile-time metafunction to retrieve the value for a given
- * symbol.
- *
- * This class performs a compile-time search through a variadic list of
- * \c InputPair types to resolve the value associated with a given symbol.
- * It powers the symbolic lookup functionality in \c Input::get().
- *
- * \tparam symbol The symbol being looked up (e.g., 'x').
- * \tparam Tail A variadic pack of \c InputPair types representing the
- * environment.
- *
- * \note This lookup is evaluated entirely at compile-time and is
- * constexpr-safe.
- *
- * \see Input, InputPair
- */
-
-/**
- * \brief Primary template declaration for \c GetImpl.
+ * \brief Recursive compile-time lookup for a symbol in an input context.
+ * \tparam symbol Symbol being searched
+ * \tparam Tail Variadic list of InputPair types
  */
 template <char symbol, IsInputPair... Tail> struct GetImpl;
 
-/**
- * \brief Recursive case of \c GetImpl.
- *
- * Compares \c Head::id with the target \c symbol.
- * If matched, returns \c Head::value; otherwise recurses.
- *
- * \tparam symbol The symbol being searched for.
- * \tparam Head The current \c InputPair being checked.
- * \tparam Tail The remaining input pairs.
- */
 template <char symbol, IsInputPair Head, IsInputPair... Tail>
 struct GetImpl<symbol, Head, Tail...> {
         static constexpr auto value = []() {
@@ -73,47 +58,32 @@ struct GetImpl<symbol, Head, Tail...> {
 };
 
 /**
- * \brief Base case of \c GetImpl that triggers a compile-time failure.
- *
- * This specialization is instantiated only when no matching symbol
- * is found in the input list.
+ * \brief Triggers a compile-time error if the symbol is not found.
  */
 template <char symbol> struct GetImpl<symbol> {
-        static_assert(symbol != symbol,
-                      "Symbol not found in the input context");
+        static_assert(symbol != symbol, "Symbol not found in input context.");
 };
 
 /**
  * \class Input
- * \brief Represents a symbolic context made up of InputPairs.
+ * \brief Compile-time context for evaluating symbolic expressions.
+ * \tparam input_pairs A variadic list of InputPair bindings.
  *
- * Used for compile-time evaluation of symbolic expressions such as
- * \c RawVariable<'x'>, by resolving them through \c get<symbol>().
- *
- * \tparam input_pairs A variadic list of \c InputPair bindings.
- *
- * \see InputPair, GetImpl, RawVariable
+ * Access values via `get<symbol>()`.
  */
-
-// [TODO] Runtime input
 template <IsInputPair... input_pairs> struct Input {
         template <char symbol> static constexpr auto get() {
             return GetImpl<symbol, input_pairs...>::value;
         }
-        using is_input = void; ///< Tag used for concept detection (\c IsInput)
+        using is_input = void;
 };
 
 /**
  * \class ExpressionBase
- * \brief CRTP base class for all symbolic expression types.
+ * \brief CRTP base class for all symbolic expressions.
+ * \tparam Derived Expression type inheriting from this base.
  *
- * Provides uniform \c eval() and \c expr() forwarding interfaces for derived
- * types. Enables static polymorphism for symbolic operations like \c Add,
- * \c Scalar, \c RawVariable.
- *
- * \tparam Derived The expression type inheriting from this base.
- *
- * \see IsExpression
+ * Provides `eval()` and `expr()` forwarding via static dispatch.
  */
 template <typename Derived> struct ExpressionBase {
         template <IsInput Input>
@@ -131,25 +101,22 @@ template <typename Derived> struct ExpressionBase {
             return static_cast<const Derived &>(*this);
         }
 
-        using is_expression = void; ///< Tag used for concept detection
+        using is_expression = void;
 };
 
 /**
- * \class Scalar
- * \brief Represents a compile-time constant value in a symbolic expression.
+ * \class RawScalar
+ * \brief Represents a compile-time constant expression.
+ * \tparam v A literal arithmetic value.
  *
- * \tparam v A constant value of an arithmetic type.
- *
- * \c Scalar can be evaluated with or without context, and prints as its raw
- * value.
- *
- * \see ExpressionBase
+ * Used internally by Scalar via normalization: Scalar<3> → Scaled<1,
+ * RawScalar<3>>.
  */
 template <auto v>
     requires IsArithmetic<decltype(v)>
 struct RawScalar : ExpressionBase<RawScalar<v>> {
-        static constexpr decltype(v) value = v; ///< The constant value
-        using type = decltype(v);               ///< Deduced type of the value
+        static constexpr decltype(v) value = v;
+        using type = decltype(v);
 
         template <IsInput Input>
         [[nodiscard]] constexpr auto eval(Input const &) const noexcept {
@@ -163,7 +130,7 @@ struct RawScalar : ExpressionBase<RawScalar<v>> {
         }
 
         using is_expression = void;
-        using is_rawscalar = void;
+        using is_raw_scalar = void;
 };
 
 template <auto v>
@@ -172,12 +139,8 @@ template <auto v> using RawScalar_t = RawScalar<v>::type;
 
 /**
  * \class RawVariable
- * \brief Represents a symbolic variable that evaluates using a symbolic input
- * context.
- *
- * \tparam symbol A character literal denoting the variable symbol (e.g., 'x').
- *
- * \see Input, ExpressionBase
+ * \brief Represents a symbolic variable for compile-time evaluation.
+ * \tparam symbol A character denoting the variable name (e.g., 'x').
  */
 template <char symbol>
 struct RawVariable : ExpressionBase<RawVariable<symbol>> {
@@ -193,9 +156,15 @@ struct RawVariable : ExpressionBase<RawVariable<symbol>> {
         }
 
         using is_expression = void;
-        using is_rawvariable = void;
+        using is_raw_variable = void;
 };
 
+/**
+ * \class Scaled
+ * \brief Represents scaled expressions: coeff * expr.
+ * \tparam Coeff A compile-time constant coefficient.
+ * \tparam E An expression type.
+ */
 template <auto Coeff, IsExpression E>
 struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
         using Expr = E;
@@ -203,11 +172,11 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
 
         Scaled(E const &expr)
             : m_expr(expr) {}
+
         [[nodiscard]] constexpr auto eval() const noexcept {
-            // \brief  We are using eval() for Scalar. Since Scalar<v> ->
-            // Scaled<1, RawScalar<v>>, we return RawScalar.eval()
             return m_expr.eval();
         }
+
         template <IsInput Input>
         [[nodiscard]] constexpr auto eval(Input const &input) const noexcept {
             if constexpr (coeff == 0)
@@ -221,10 +190,9 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
                 return m_expr.expr();
             else if constexpr (coeff == 0)
                 return "0";
-            else {
+            else
                 return "(" + utility::format_floating_point(coeff) + " * " +
                        m_expr.expr() + ")";
-            }
         }
 
         E m_expr;
@@ -232,12 +200,22 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
         using is_scaled = void;
 };
 
+/**
+ * \class Variable
+ * \brief Public-facing symbolic variable.
+ * \tparam symbol A character literal (e.g., 'x')
+ */
 template <char symbol> struct Variable : Scaled<1, RawVariable<symbol>> {
         constexpr Variable()
             : Scaled<1, RawVariable<symbol>>{RawVariable<symbol>{}} {}
         using is_variable = void;
 };
 
+/**
+ * \class Scalar
+ * \brief Public-facing compile-time constant expression.
+ * \tparam v An arithmetic literal.
+ */
 template <auto v>
     requires IsArithmetic<decltype(v)>
 struct Scalar : Scaled<1, RawScalar<v>> {
@@ -246,11 +224,13 @@ struct Scalar : Scaled<1, RawScalar<v>> {
         using is_scalar = void;
 };
 
-// [TODO]
-// Look into std::move and std::forward aspects to
-// avoid copies in both lvalue and rvalue expressions.
-//
-// Add variadic templates.
+/**
+ * \class Add
+ * \brief Variadic addition expression.
+ * \tparam Exprs A list of symbolic expressions.
+ *
+ * Recursively flattens nested Add types through operator+.
+ */
 template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
         std::tuple<Exprs...> m_exprs;
 
@@ -283,15 +263,18 @@ template <IsExpression... Exprs> struct Add : ExpressionBase<Add<Exprs...>> {
         using is_add = void;
 };
 
-// CTAD for Add
 template <IsExpression... Exprs> Add(Exprs...) -> Add<Exprs...>;
 
-// Overloading operator+
+/// \name Operator Overloads
+/// \{
+
+/** \brief Addition of two expressions. */
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto operator+(LHS const &lhs, RHS const &rhs) {
     return Add<LHS, RHS>(lhs, rhs);
 }
 
+/** \brief Left-associative flattening of Add with new term. */
 template <IsExpression... LHSExprs, IsExpression RHS>
 constexpr auto operator+(Add<LHSExprs...> const &lhs, RHS const &rhs) {
     return std::apply(
@@ -301,6 +284,7 @@ constexpr auto operator+(Add<LHSExprs...> const &lhs, RHS const &rhs) {
         lhs.m_exprs);
 }
 
+/** \brief Merge two Add nodes recursively. */
 template <IsExpression... LHSExprs, IsExpression... RHSExprs>
 constexpr auto operator+(Add<LHSExprs...> const &lhs,
                          Add<RHSExprs...> const &rhs) {
@@ -308,33 +292,26 @@ constexpr auto operator+(Add<LHSExprs...> const &lhs,
                       rhs.m_exprs);
 }
 
-// Unary operator-
+/** \brief Unary negation of an expression. */
 template <IsExpression Expr> constexpr auto operator-(Expr const &expr) {
     return Scaled<-1, Expr>{expr};
 }
 
+/** \brief Specialization for negating an existing Scaled term. */
 template <IsScaled S> constexpr auto operator-(S const &s) {
     constexpr auto new_coeff = -1 * S::coeff;
-    using Expr = S::Expr;
+    using Expr = typename S::Expr;
     return Scaled<new_coeff, Expr>{s.m_expr};
 }
 
-// Binary base operator-
+/** \brief Subtraction is defined as lhs + (-rhs). */
 template <IsExpression LHS, IsExpression RHS>
 constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
     return lhs + (-rhs);
 }
 
-// template <IsScaled LHS, IsScaled RHS>
-// constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
-//     return lhs + (-rhs);
-// }
-//
-// template <IsAddition LHS, IsScaled RHS>
-// constexpr auto operator-(LHS const &lhs, RHS const &rhs) {
-//     return lhs + (-rhs);
-// }
+/// \}
 
-} // namespace math_expr
+} // namespace math_dsl
 
-#endif // MATH_EXPRESSION
+#endif // MATH_DSL
