@@ -188,10 +188,12 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
         [[nodiscard]] constexpr std::string expr() const {
             if constexpr (coeff == 1)
                 return m_expr.expr();
+            else if constexpr (coeff == -1)
+                return "(-" + m_expr.expr() + ")";
             else if constexpr (coeff == 0)
                 return "0";
             else
-                return "(" + utility::format_floating_point(coeff) + " * " +
+                return "(" + utility::format_floating_point(coeff) +
                        m_expr.expr() + ")";
         }
 

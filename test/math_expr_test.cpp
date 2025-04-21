@@ -79,8 +79,8 @@ TEST_CASE("Negation and Subtraction", "[Negation][Subtraction]") {
     SECTION("Unary negation") {
         REQUIRE((-x).eval(Ctx{}) == -5);
         REQUIRE((-three).eval() == -3);
-        REQUIRE((-x).expr() == "(-1 * x)");
-        REQUIRE((-three).expr() == "-3");
+        REQUIRE((-x).expr() == "(-x)");
+        REQUIRE((-three).expr() == "(-3)");
     }
 
     SECTION("Double negation simplifies back") {
@@ -92,24 +92,24 @@ TEST_CASE("Negation and Subtraction", "[Negation][Subtraction]") {
     SECTION("Scaled negation") {
         auto expr = -Scaled<2, decltype(x)>{x};
         REQUIRE(expr.eval(Ctx{}) == -10);
-        REQUIRE(expr.expr() == "(-2 * x)");
+        REQUIRE(expr.expr() == "(-2x)");
     }
 
     SECTION("Subtraction as addition of negation") {
         auto expr = x - y;
         REQUIRE(expr.eval(Ctx{}) == 3);
-        REQUIRE(expr.expr() == "(x + (-1 * y))");
+        REQUIRE(expr.expr() == "(x + (-y))");
     }
 
     SECTION("Composed: (x - y) + (-x)") {
         auto expr = (x - y) + (-x);
         REQUIRE(expr.eval(Ctx{}) == -2);
-        REQUIRE(expr.expr() == "(x + (-1 * y) + (-1 * x))");
+        REQUIRE(expr.expr() == "(x + (-y) + (-x))");
     }
 
     SECTION("Deeply nested composition with subtraction") {
         auto expr = x + (-x - y + y - three);
         REQUIRE(expr.eval(Ctx{}) == -3);
-        REQUIRE(expr.expr() == "(x + (-1 * x) + (-1 * y) + y + (-1 * 3))");
+        REQUIRE(expr.expr() == "(x + (-x) + (-y) + y + (-3))");
     }
 }
