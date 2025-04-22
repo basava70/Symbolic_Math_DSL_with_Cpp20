@@ -410,11 +410,32 @@ constexpr auto operator*(Scaled<Coeff, Multiplication<LHSExprs...>> const &lhs,
         lhs.m_expr.m_exprs);
 }
 
+//[TODO]
+// template <auto C1, IsExpression... LHSExprs, auto C2, IsExpression...
+// RHSExprs> constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>>
+// const &lhs,
+//                          Scaled<C2, Multiplication<RHSExprs...>> const &rhs)
+//                          {
+//     return std::apply([&](auto const &...terms) { return (lhs * ... * terms);
+//     },
+//                       rhs.m_expr.m_exprs);
+// }
 template <auto C1, IsExpression... LHSExprs, auto C2, IsExpression... RHSExprs>
 constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>> const &lhs,
                          Scaled<C2, Multiplication<RHSExprs...>> const &rhs) {
-    return std::apply([&](auto const &...terms) { return (lhs * ... * terms); },
-                      rhs.m_expr.m_exprs);
+    constexpr auto new_coeff = C1 * C2;
+
+    return std::apply(
+        [&](auto const &...lhs_terms) {
+            return std::apply(
+                [&](auto const &...rhs_terms) {
+                    return Scaled<new_coeff,
+                                  Multiplication<LHSExprs..., RHSExprs...>>{
+                        Multiplication{lhs_terms..., rhs_terms...}};
+                },
+                rhs.m_expr.m_exprs);
+        },
+        lhs.m_expr.m_exprs);
 }
 
 } // namespace math_dsl
