@@ -439,6 +439,8 @@ constexpr auto operator*(Add<LHSExprs...> const &lhs, RHS const &rhs) {
         lhs.m_exprs);
 }
 
+//[FIXME]
+// Have to go to Add + Add I think
 template <IsExpression... LHSExprs, IsExpression... RHSExprs>
 constexpr auto operator*(Add<LHSExprs...> const &lhs,
                          Add<RHSExprs...> const &rhs) {
