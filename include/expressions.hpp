@@ -377,65 +377,48 @@ constexpr auto operator*(LHS const &lhs, RHS const &rhs) {
     constexpr auto new_coeff = LHS::coeff * RHS::coeff;
     using LExpr = LHS::Expr;
     using RExpr = RHS::Expr;
-    using NewExpr = Multiplication<LExpr, RExpr>;
-    return Scaled<new_coeff, NewExpr>{NewExpr{lhs.m_expr, rhs.m_expr}};
+    using NewExpr = Multiplication<Scaled<1, LExpr>, Scaled<1, RExpr>>;
+    return Scaled<new_coeff, NewExpr>{
+        NewExpr{Scaled<1, LExpr>{lhs.m_expr}, Scaled<1, RExpr>{rhs.m_expr}}};
 }
 
-template <IsPureScaled LHS, auto Coeff, IsExpression... RHSExprs>
+template <IsPureScaled LHS, auto Coeff, IsPureScaled... RHSExprs>
     requires IsArithmetic<decltype(Coeff)>
 constexpr auto
 operator*(LHS const &lhs,
           Scaled<Coeff, Multiplication<RHSExprs...>> const &rhs) {
     constexpr auto new_coeff = LHS::coeff * Coeff;
     using LExpr = typename LHS::Expr;
-    using NewExpr = Multiplication<LExpr, RHSExprs...>;
+    using NewExpr = Multiplication<Scaled<1, LExpr>, RHSExprs...>;
     return std::apply(
         [&](auto const &...rest) {
-            return Scaled<new_coeff, NewExpr>{NewExpr{lhs.m_expr, rest...}};
+            return Scaled<new_coeff, NewExpr>{
+                NewExpr{Scaled<1, LExpr>{lhs.m_expr}, rest...}};
         },
         rhs.m_expr.m_exprs);
 }
 
-template <auto Coeff, IsExpression... LHSExprs, IsPureScaled RHS>
+template <auto Coeff, IsPureScaled... LHSExprs, IsPureScaled RHS>
     requires IsArithmetic<decltype(Coeff)>
 constexpr auto operator*(Scaled<Coeff, Multiplication<LHSExprs...>> const &lhs,
                          RHS const &rhs) {
     constexpr auto new_coeff = Coeff * RHS::coeff;
     using RExpr = RHS::Expr;
-    using NewExpr = Multiplication<LHSExprs..., RExpr>;
+    using NewExpr = Multiplication<LHSExprs..., Scaled<1, RExpr>>;
     return std::apply(
         [&](auto const &...rest) {
-            return Scaled<new_coeff, NewExpr>{NewExpr{rest..., rhs.m_expr}};
+            return Scaled<new_coeff, NewExpr>{
+                NewExpr{rest..., Scaled<1, RExpr>{rhs.m_expr}}};
         },
         lhs.m_expr.m_exprs);
 }
 
-//[TODO]
-// template <auto C1, IsExpression... LHSExprs, auto C2, IsExpression...
-// RHSExprs> constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>>
-// const &lhs,
-//                          Scaled<C2, Multiplication<RHSExprs...>> const &rhs)
-//                          {
-//     return std::apply([&](auto const &...terms) { return (lhs * ... * terms);
-//     },
-//                       rhs.m_expr.m_exprs);
-// }
 template <auto C1, IsExpression... LHSExprs, auto C2, IsExpression... RHSExprs>
 constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>> const &lhs,
                          Scaled<C2, Multiplication<RHSExprs...>> const &rhs) {
-    constexpr auto new_coeff = C1 * C2;
-
-    return std::apply(
-        [&](auto const &...lhs_terms) {
-            return std::apply(
-                [&](auto const &...rhs_terms) {
-                    return Scaled<new_coeff,
-                                  Multiplication<LHSExprs..., RHSExprs...>>{
-                        Multiplication{lhs_terms..., rhs_terms...}};
-                },
-                rhs.m_expr.m_exprs);
-        },
-        lhs.m_expr.m_exprs);
+    return Scalar<C2>{} *
+           std::apply([&](auto const &...terms) { return (lhs * ... * terms); },
+                      rhs.m_expr.m_exprs);
 }
 
 } // namespace math_dsl

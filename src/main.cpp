@@ -38,7 +38,7 @@ int main() {
     print(expr3);
     auto expr4 = (one * x * y * four); // 4xy
     print(expr4);
-    auto expr5 = expr3 * expr4;
+    auto expr5 = expr3 * expr4; // 6xy * 4 xy -> 24xyxy
     print(expr5);
 
     std::cout << "Success!!\n";
