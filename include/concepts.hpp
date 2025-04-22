@@ -36,16 +36,22 @@ concept IsInput = requires { typename T::is_input; };
 template <typename T>
 concept IsExpression = requires { typename T::is_expression; };
 template <typename T>
+concept IsRawVariable =
+    requires { typename T::is_rawvariable; } && IsExpression<T>;
+template <typename T>
+concept IsRawScalar = requires { typename T::is_rawscalar; } && IsExpression<T>;
+template <typename T>
 concept IsScalar = requires { typename T::is_scalar; } && IsExpression<T>;
 template <typename T>
 concept IsScaled = requires { typename T::is_scaled; } && IsExpression<T>;
 template <typename T>
+concept IsPureScaled =
+    requires { typename T::is_scaled; } && !IsScalar<T> && IsExpression<T>;
+template <typename T>
 concept IsAddition = requires { typename T::is_addition; } && IsExpression<T>;
 template <typename T>
-concept IsNegation = requires { typename T::is_negation; } && IsExpression<T>;
-template <typename T>
 concept IsMultiplication =
-    IsExpression<T> && requires { typename T::is_multiplication; };
+    requires { typename T::is_multiplication; } && IsExpression<T>;
 /// \concept IsScalarZero
 /// \brief Matches only Scalar<0> expressions (used for identity simplification)
 template <typename T>

@@ -1,11 +1,11 @@
-#ifndef MATH_EXPRESSION_UTILITY
-#define MATH_EXPRESSION_UTILITY
+#ifndef MATH_DSL_UTILITY
+#define MATH_DSL_UTILITY
 #include "concepts.hpp"
 #include <iostream>
 #include <sstream>
 #include <string>
 
-namespace math_expr::utility {
+namespace math_dsl::utility {
 
 /**
  * \brief Formats a floating-point number to a fixed precision without trailing
@@ -75,5 +75,5 @@ inline bool is_composite(std::string const &expr) {
 //     std::cout << "expr : " << demangled_type_name<Expr>() << "\n";
 // }
 
-} // namespace math_expr::utility
+} // namespace math_dsl::utility
 #endif
