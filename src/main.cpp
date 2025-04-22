@@ -2,7 +2,7 @@
 #include <iostream>
 using namespace math_dsl;
 using namespace math_dsl::utility;
-auto input = Input<InputPair<'x', 3>, InputPair<'y', 4>>{};
+auto input = Input<InputPair<'x', 3>, InputPair<'y', 4>, InputPair<'z', 7>>{};
 void print(auto const &var) {
     std::cout << "expr : " << var.expr() << " val : " << var.eval(input)
               << "\n";
@@ -10,6 +10,7 @@ void print(auto const &var) {
 int main() {
     auto x = Variable<'x'>{};
     auto y = Variable<'y'>{};
+    auto z = Variable<'z'>{};
     auto zero_scalar = Scalar<0>{};
     auto one = Scalar<1>{};
     auto two = Scalar<2>{};
@@ -40,6 +41,14 @@ int main() {
     print(expr4);
     auto expr5 = expr3 * expr4; // 6xy * 4 xy -> 24xyxy
     print(expr5);
+
+    auto add_expr1 = x * (one + x * y + z);
+    print(add_expr1);
+    auto add_expr2 = (two + y * z + x) * y;
+    print(add_expr2);
+
+    auto add_expr3 = add_expr1 * add_expr2;
+    print(add_expr3);
 
     std::cout << "Success!!\n";
     return 0;

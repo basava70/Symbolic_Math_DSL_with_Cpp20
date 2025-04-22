@@ -421,6 +421,32 @@ constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>> const &lhs,
                       rhs.m_expr.m_exprs);
 }
 
+template <typename... Ts> constexpr auto make_add(Ts const &...args) {
+    return Add<Ts...>{args...};
+}
+
+template <IsPureScaled LHS, IsExpression... RHSExprs>
+constexpr auto operator*(LHS const &lhs, Add<RHSExprs...> const &rhs) {
+    return std::apply(
+        [&](auto const &...terms) { return make_add((lhs * terms)...); },
+        rhs.m_exprs);
+}
+
+template <IsExpression... LHSExprs, IsPureScaled RHS>
+constexpr auto operator*(Add<LHSExprs...> const &lhs, RHS const &rhs) {
+    return std::apply(
+        [&](auto const &...terms) { return make_add((terms * rhs)...); },
+        lhs.m_exprs);
+}
+
+template <IsExpression... LHSExprs, IsExpression... RHSExprs>
+constexpr auto operator*(Add<LHSExprs...> const &lhs,
+                         Add<RHSExprs...> const &rhs) {
+    return std::apply(
+        [&](auto const &...terms) { return make_add((lhs * terms)...); },
+        rhs.m_exprs);
+}
+
 } // namespace math_dsl
 
 #endif // MATH_DSL
