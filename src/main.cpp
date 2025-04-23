@@ -47,8 +47,10 @@ int main() {
     auto add_expr2 = (two + y * z + x) * y;
     print(add_expr2);
 
-    auto add_expr3 = add_expr1 * add_expr2;
-    print(add_expr3);
+    auto test_add_base = (x + y) * (y + z);
+    print(test_add_base);
+
+    // auto add_expr3 = add_expr1 * add_expr2; print(add_expr3);
 
     std::cout << "Success!!\n";
     return 0;

@@ -193,8 +193,7 @@ struct Scaled : ExpressionBase<Scaled<Coeff, E>> {
             else if constexpr (coeff == 0)
                 return "0";
             else
-                return "(" + utility::format_floating_point(coeff) +
-                       m_expr.expr() + ")";
+                return utility::format_floating_point(coeff) + m_expr.expr();
         }
 
         E m_expr;
@@ -340,9 +339,8 @@ struct Multiplication : ExpressionBase<Multiplication<Exprs...>> {
         [[nodiscard]] std::string expr() const {
             return std::apply(
                 [&](auto const &first, auto const &...last) {
-                    std::string result = "(" + first.expr();
+                    std::string result = first.expr();
                     ((result += last.expr()), ...);
-                    result += ")";
                     return result;
                 },
                 m_exprs);
@@ -413,12 +411,22 @@ constexpr auto operator*(Scaled<Coeff, Multiplication<LHSExprs...>> const &lhs,
         lhs.m_expr.m_exprs);
 }
 
-template <auto C1, IsExpression... LHSExprs, auto C2, IsExpression... RHSExprs>
+template <auto C1, IsScaled... LHSExprs, auto C2, IsScaled... RHSExprs>
 constexpr auto operator*(Scaled<C1, Multiplication<LHSExprs...>> const &lhs,
                          Scaled<C2, Multiplication<RHSExprs...>> const &rhs) {
-    return Scalar<C2>{} *
-           std::apply([&](auto const &...terms) { return (lhs * ... * terms); },
-                      rhs.m_expr.m_exprs);
+    constexpr auto new_coeff = C1 * C2;
+    using NewExpr = Multiplication<LHSExprs..., RHSExprs...>;
+
+    return std::apply(
+        [&](auto const &...lhsterms) {
+            return std::apply(
+                [&](auto const &...rhsterms) {
+                    return Scaled<new_coeff, NewExpr>{
+                        NewExpr{lhsterms..., rhsterms...}};
+                },
+                rhs.m_expr.m_exprs);
+        },
+        lhs.m_expr.m_exprs);
 }
 
 template <typename... Ts> constexpr auto make_add(Ts const &...args) {
@@ -441,13 +449,21 @@ constexpr auto operator*(Add<LHSExprs...> const &lhs, RHS const &rhs) {
 
 //[FIXME]
 // Have to go to Add + Add I think
-template <IsExpression... LHSExprs, IsExpression... RHSExprs>
-constexpr auto operator*(Add<LHSExprs...> const &lhs,
-                         Add<RHSExprs...> const &rhs) {
-    return std::apply(
-        [&](auto const &...terms) { return make_add((lhs * terms)...); },
-        rhs.m_exprs);
-}
+// template <IsExpression... LHSExprs, IsExpression... RHSExprs>
+// constexpr auto operator*(Add<LHSExprs...> const &lhs,
+//                          Add<RHSExprs...> const &rhs) {
+//     return std::apply(
+//         [&](auto const &...lhs_terms) {
+//             return make_add(([](auto const &lhs_term) {
+//                 return std::apply(
+//                     [&](auto const &...rhs_terms) {
+//                         return make_add((lhs_term * rhs_terms)...);
+//                     },
+//                     rhs.m_exprs);
+//             }(lhs_terms)...));
+//         },
+//         lhs.m_exprs);
+// }
 
 } // namespace math_dsl
 
